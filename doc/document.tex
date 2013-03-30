@@ -1,0 +1,158 @@
+\RequirePackage[l2tabu, orthodox]{nag}
+% rubber: module pdftex
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[finnish]{babel}
+\usepackage{amsfonts,amsmath,amssymb,amsthm,booktabs,enumitem,graphicx,url}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{lmodern}
+\usepackage[top=2cm]{geometry}
+
+\usepackage{microtype} % This must be after fonts
+\usepackage[colorlinks=false, pdfborder={0 0 0}]{hyperref} % hyperref and cleveref must be loaded last
+\usepackage{cleveref}
+
+\newcommand{\code}{\texttt}
+
+\title{Ohjelmointikielten kääntäjät \\ Lopputyö}
+\author{Matti Åstrand}
+\date{28. 5. 2008}
+
+\begin{document}
+\maketitle
+
+\section{Johdanto}
+Harjoitustyönä toteutettiin kääntäjä oppikirjan \cite{dragon} kielestä LLVM-tavukoodiin. 
+Kääntäjä kirjoitettiin Haskell-kielellä.
+Kieli toteutettiin kokonaan yhtä poikkeusta lukuunottamatta 
+ (katso kohta \ref{kuva}).
+
+\section{Kääntämisohjeet}
+Ohjelman voi kääntää \code{Makefile}:n avulla. Komennolla \code{make} ohjelma 
+käännetään, ja testit ajetaan komennolla \code{make test}. Nämä toimivat TKTL:n 
+järjestelmässä, koska LLVM:n binäärit löytyvät hakemistosta \code{/opt/llvm-2.1/bin}. 
+Jos testejä halutaan ajaa muualla, tulee \code{Makefile}:ä muuttaa vastaavasti.
+
+\section{Työn kuvaus}
+\subsection{Kieli}
+Oppikirjan kielessä ohjelma on vain yksi lohkorakenne, joka voi sisältää 
+\code{while}-silmukoita ja \code{if-else}-rakenteita. Esimerkiksi funktioita 
+tai proseduureja ei siis ole. Kielessä on tyyppeinä totuusarvot (\code{bool}), 
+kokonaisluvut, liukuluvut sekä merkit (\code{char}) sekä näista muodostetut 
+vakiokokoiset taulukot. Erikoista on, ettei \code{char}-tyypin muuttujaan 
+voi sijoittaa mitään, sillä syntaksista ei löydy tähän sopivaa lauseketta.
+
+Kielessä voi muodostaa lausekkeita seuraavilla kaksipaikkaisilla 
+operaattoreilla: 
+\code{+ - * / == != < <= > >= \&\& ||}, sekä yksipaikkaisilla operaattoreilla: 
+\code{- !}. Seuraavassa taulukossa on kuvattu, miten lausekkeen tyyppi 
+riippuu argumenttien tyypeistä:
+
+\begin{tabular}{ccl}
+\code{int + int     }& = & \code{int  } (samoin \code{-, *, /})\\
+\code{int + float   }& = & \code{float} \\
+\code{float + int   }& = & \code{float} \\
+\code{float + float }& = & \code{float} \\
+\code{int < int     }& = & \code{bool } (samoin \code{>, ==} jne.)\\
+\code{float < float }& = & \code{bool }\\
+\code{bool \&\& bool}& = & \code{bool } (samoin \code{||})\\
+\code{- int         }& = & \code{int  }\\
+\code{- float       }& = & \code{float} \\
+\code{!bool         }& = & \code{bool }\\
+\end{tabular} 
+
+\subsection{Jäsentäjä}\label{kuva}
+Jäsentäjä toteutettiin Haskellin Parsec-kirjastoa. Kirjasto toimii siten, että 
+yksin\-kertaisia jäsentäjiä yhdistellään isommiksi tavalla, joka vastaa kielen 
+määrittelyä. Jäsentäjä on tiedostossa \code{Parser.hs}.
+
+Lausekkeiden jäsentäjään käytettiin Haskellin valmista 
+\code{buildExpressionParser}-funktiota. Tämän vuoksi jäsentäjässä on sellainen
+rajoite, että yksipaikkaisia operaattoreita ei voi olla montaa peräkkäin, 
+kuten lausekkeissa \code{!!(x==x)} ja \code{-{}-x}. Onneksi molemmat mahdolliset 
+tapaukset ovat käytännössä hyödyttömiä, sillä ne ovat täysin yhtäpitäviä 
+lausekkeiden \code{x==x} ja \code{x} kanssa. Jos välttämättä halutaan käyttää 
+ylläolevia lausekkeita, niihin on laitettava sulut seuraavasti: \code{!(!(x==x)), -(-x)}.
+
+\subsection{Tyypintarkistus}
+Tyypintarkistuksessa pitää huolehtia, että silmukoiden ja \code{if}-rakenteiden 
+testilausekkeet ovat \code{bool}-tyyppisiä ja että sijoituksessa lausekkeen ja 
+muuttujan tyypit ovat yhteensopivia. Tässä pitää ottaa huomioon, että \code{int}-lausekkeen
+voi sijoittaa \code{float}-muuttujaan ja päinvastoin. Tähän käytettiin LLVM:n 
+käskyjä \code{sitofp} ja \code{fptosi}. Tyypintarkistin on tiedostossa \code{Static.hs}.
+Toteutuksessa luo\-daan ensin symbolitaulut, jossa on jokaisen muuttujan tyyppi. 
+Sitten lausekkeiden tyypit voi määrittää ylläolevan taulukon säännöillä.
+
+\subsection{Koodin generointi}
+Lausekkeiden laskeminen onnistuu LLVM:n käskyillä helposti, sillä jokaiselle 
+kaksipaikkaiselle operaattorille löytyy käsky. Yksipaikkaiset operaattorit 
+toteutettiin siten, että \code{-x} muutetaan \code{(0-x)}:ksi ja 
+\code{!b} muutetaan \code{(x XOR true)}:ksi.
+
+Ennen kuin koodia aletaan generoida, valitaan jokaiselle muuttujalle yksi\-käsitteinen 
+nimi, joka on LLVM-koodissa osoitemuuttuja. Esimerkiksi \code{int}-muuttujaa vastaa 
+rekisteri, joka on tyyppiä \code{i32*}. Muuttujien nimet eivät riipu alkuperäisistä 
+nimistä, vaan ovat muotoa \code{ \%var1, \%var2} \ldots
+
+Laskentaan tarvitaan paljon rekistereitä välituloksille, joten ohjelmassa pidetään 
+yllä tilaa käytetyistä rekistereistä. Ongelmaksi muodostui \code{break}-käskyn toteuttaminen, 
+sillä tällöin pitää ohjelmassa hypätä käsiteltävän rakenteen ulko\-puolelle. Tätä varten 
+pitää ohjelmassa ylläpitää tilaa myös sisäkkäisistä \code{while}-silmukoista, jotta tiedetään mihin 
+pitää milloinkin hypätä. 
+
+Yksi ongelma oli LLVM:n sääntö, että jokaisen peruslohkon pitää päättyä hyppykäskyyn, eli 
+ohjelma ei voi vain valua seuraavaan peruslohkoon. Tämä aiheutti joukon virhetilanteita, 
+jotka vältettiin lisäämällä koodin generoinnissa ylimääräisiä hyppykäskyjä, kunnes kaikki 
+testit menivät läpi hyväksytysti.
+
+Koodin generoija on tiedostossa \code{CodeGen.hs}.
+
+\section{Testaus}
+Kääntäjän testaukseen käytettiin oppikirjan valmiita testejä hieman muutettuina. 
+Testiohjelmiin tehtiin seuraavat muutokset:
+\begin{itemize}
+\item Testiohjelmissa \code{jump1.t} ja \code{prog4.t} esiintyi käskynä pelkkä puolipiste, 
+joka ei ole kielen määrittelyn mukainen ja joka tuottaa syntaksivirheen. Tämä käsky korvattiin 
+tyhjällä lohkorakenteella \code{\{\}}, joka tuottaa halutun lopputuloksen.
+
+\item Ohjelmassa \code{expr3.t} esiintyy lausekkeita, joissa on kaksi negaatiota peräk\-käin, kuten 
+kohdassa \ref{kuva}. Nämä lausekkeet sulutettiin edellä mainitulla tavalla. 
+
+\item Ohjelmat \code{expr4.t, jump3.t} ja \code{prog0.t} kaatuivat ajonaikana, koska niissä 
+viitataan taulukon \code{i}:n alkioon, vaikka muuttujaa \code{i} ei ole alustettu ja se 
+sisältää satunnaista roskaa. Näihin ohjelmiin lisättiin muuttujien alustuksia.
+
+\item Ohjelmat \code{prog0.t, prog1.t} ja \code{identity2.t} jäivät ikuiseen silmukkaan ajettaessa. 
+Näitä muutettiin niin, että ne pysähtyvät.
+
+\item Ohjelmassa \code{expr1.t} esiintyy liukulukuvakio 3.14159. LLVM vaatii, että vakiot ovat 
+esitettävissä tarkasti binäärilukuina, joten vakio muutettiin 3.140625:ksi, joka on 
+binäärimuodossa tarkasti 11.001001. Tämän muutoksen olisi voinut toteuttaa automaattiseksi suoraan 
+kääntäjään, mutta sitä ei toteutettu. 
+\end{itemize}
+
+\section{Parannusmahdollisuuksia}
+Kääntäjää voidaan parantaa ainakin seuraavilla tavoilla:
+\begin{itemize}
+\item Toteuttaa moninkertaiset negaatiot ja vastaluvut jollain omalla lisäyksellä 
+jäsentäjään
+
+\item Muuttaa liukulukuvakiot automaattisesti LLVM:n haluamaan muotoon, eli niin, että 
+ne voidaan tarkasti esittää binäärimuodossa
+
+\item Lisätä tietorakenne LLVM:n tavukoodin esittämiseen. Tämä johdonmukais\-taisi koodin 
+generointia, kun ei tarvitse joka välissä muistaa esim. rivinvaihtoja käskyjen väliin. 
+Tällä hetkellä kääntäjä tuottaa syntaksipuista suoraan merkkijonoja. Tällainen tietorakenne 
+on välttämätön myös, jos tuotettua koodia halutaan optimoida. 
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{dragon}
+  A. V. Aho, M. S. Lam, R. Sethi, and J. D. Ullman,
+  Compilers: \emph{Principles, Techniques and Tools}, 
+  Addison Wesley,
+  2nd Edition,
+  2006.
+\end{thebibliography}
+\end{document}
