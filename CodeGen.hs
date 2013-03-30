@@ -1,9 +1,8 @@
 module CodeGen where
-import Static
+import StaticAnalysis
 import AbstractSyntax
 import Control.Monad.State
 import Data.Tree
-import Data.List
 import qualified Data.Traversable as T
 import qualified Data.Foldable as F
 import qualified Data.Map as M
@@ -80,9 +79,12 @@ binOpStr :: BinOp -> Type -> (Var,Var,Var) -> String
 -- aritmeettiset
 binOpStr op t        (r0,r1,r2)  = r0 ++ " = " ++ opStr ++ " " ++ renderType t ++ " " ++ r1 ++ ", " ++ r2 where
     opStr = case op of
-            "+" -> "add"
-            "-" -> "sub"
-            "*" -> "mul"
+            "+" | t == TInt -> "add"
+            "-" | t == TInt -> "sub"
+            "*" | t == TInt -> "mul"
+            "+" | t == TFloat -> "fadd"
+            "-" | t == TFloat -> "fsub"
+            "*" | t == TFloat -> "fmul"
             "/" | t == TInt -> "sdiv"
             "/" | t == TFloat -> "fdiv"
             "&&" | t == TBool -> "and"
@@ -103,7 +105,8 @@ binOpStr op t        (r0,r1,r2)  = r0 ++ " = " ++ opStr ++ " " ++ renderType t +
             ">=" -> "icmp sge"
 
 unOpStr :: UnOp -> Type -> (Var,Var) -> String
-unOpStr "-" t (r0,r1)       = r0 ++ " = sub " ++ renderType t ++ " 0, " ++ r1
+unOpStr "-" t@TInt (r0,r1)       = r0 ++ " = sub " ++ renderType t ++ " 0, " ++ r1
+unOpStr "-" t@TFloat (r0,r1)       = r0 ++ " = fsub " ++ renderType t ++ " 0, " ++ r1
 unOpStr "!" t@TBool (r0,r1) = r0 ++ " = xor " ++ renderType t ++ " true, " ++ r1
 unOpStr "f2i" t@TFloat (r0,r1) = r0 ++ " = fptosi " ++ renderType t ++ " " ++ r1 ++ " to " ++ renderType TInt
 unOpStr "i2f" t@TInt (r0,r1)   = r0 ++ " = sitofp " ++ renderType t ++ " " ++ r1 ++ " to " ++ renderType TFloat
@@ -119,7 +122,7 @@ evalExpr f (ENum n) = do
         return $ (v1, unlines [v1 ++ " = add i32 " ++ show n ++ ", 0"])
 evalExpr f (EReal n) = do
         v1 <- genvar "%reg"
-        return $ (v1, unlines [v1 ++ " = add float " ++ show n ++ ", 0.0"])
+        return $ (v1, unlines [v1 ++ " = fadd float " ++ show n ++ ", 0.0"])
 evalExpr f (EBool b) = do
         v1 <- genvar "%reg"
         let val = if b then "true" else "false"

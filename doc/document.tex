@@ -23,10 +23,10 @@
 \maketitle
 
 \section{Johdanto}
-Harjoitustyönä toteutettiin kääntäjä oppikirjan \cite{dragon} kielestä LLVM-tavukoodiin. 
+Harjoitustyönä toteutettiin kääntäjä oppikirjan~\cite{dragon} kielestä LLVM-tavukoodiin. 
 Kääntäjä kirjoitettiin Haskell-kielellä.
 Kieli toteutettiin kokonaan yhtä poikkeusta lukuunottamatta 
- (katso kohta \ref{kuva}).
+ (katso kohta~\ref{kuva}).
 
 \section{Kääntämisohjeet}
 Ohjelman voi kääntää \code{Makefile}:n avulla. Komennolla \code{make} ohjelma 
@@ -117,7 +117,7 @@ joka ei ole kielen määrittelyn mukainen ja joka tuottaa syntaksivirheen. Täm�
 tyhjällä lohkorakenteella \code{\{\}}, joka tuottaa halutun lopputuloksen.
 
 \item Ohjelmassa \code{expr3.t} esiintyy lausekkeita, joissa on kaksi negaatiota peräk\-käin, kuten 
-kohdassa \ref{kuva}. Nämä lausekkeet sulutettiin edellä mainitulla tavalla. 
+kohdassa~\ref{kuva}. Nämä lausekkeet sulutettiin edellä mainitulla tavalla. 
 
 \item Ohjelmat \code{expr4.t, jump3.t} ja \code{prog0.t} kaatuivat ajonaikana, koska niissä 
 viitataan taulukon \code{i}:n alkioon, vaikka muuttujaa \code{i} ei ole alustettu ja se 
@@ -142,7 +142,7 @@ jäsentäjään
 ne voidaan tarkasti esittää binäärimuodossa
 
 \item Lisätä tietorakenne LLVM:n tavukoodin esittämiseen. Tämä johdonmukais\-taisi koodin 
-generointia, kun ei tarvitse joka välissä muistaa esim. rivinvaihtoja käskyjen väliin. 
+generointia, kun ei tarvitse joka välissä muistaa esim.\ rivinvaihtoja käskyjen väliin. 
 Tällä hetkellä kääntäjä tuottaa syntaksipuista suoraan merkkijonoja. Tällainen tietorakenne 
 on välttämätön myös, jos tuotettua koodia halutaan optimoida. 
 \end{itemize}

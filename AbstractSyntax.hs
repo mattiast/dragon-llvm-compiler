@@ -38,6 +38,7 @@ data Stmt = SAssign LValue Expr
           | SBreak
   deriving (Eq, Ord, Show)
 
+-- TODO pretty printing
 instance Show Expr where
     show (ENum i) = show i
     show (EReal r) = show r
@@ -45,12 +46,14 @@ instance Show Expr where
     show (EFetch lv) = show lv
     show (EBin bop e1 e2) = "(" ++ show e1 ++ ")"  ++ bop ++ "(" ++ show e2 ++ ")"
     show (EUn uop e1) = uop ++ show e1
+
 instance Show Type where
     show TInt = "int"
     show TFloat = "float"
     show TChar = "char"
     show TBool = "bool"
     show (TArr t i) = show t ++ "[" ++ show i ++ "]"
+
 instance Show LValue where
     show (LVar var) = var
     show (LArr l e) = show l ++ "[" ++ show e ++ "]"

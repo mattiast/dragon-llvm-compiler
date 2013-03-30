@@ -1,18 +1,16 @@
 import Parser
-import AbstractSyntax
-import Static
+import StaticAnalysis
 import CodeGen
-import System
+import System.Environment
 import System.IO
 import qualified Data.Map as M
 import Control.Monad.State
-import Text.ParserCombinators.Parsec
 
 main :: IO ()
 main = do
     args <- getArgs
     str <- readFile (args!!0)
-    let s = wParse str --parse parseExpr "" "(x[2*y + 1][3] + 1)*(y - 15)"
+    let s = wParse str
         t1 = ftree s
         koodiST = runStateT (do 
                 t2 <- varNames t1
@@ -24,4 +22,4 @@ main = do
         ((koodi,_),_) = runState koodiST []
     case checkTypes t1 of
     	Right () -> putStr koodi
-	Left s -> hPutStrLn stderr s
+        Left str -> hPutStrLn stderr str

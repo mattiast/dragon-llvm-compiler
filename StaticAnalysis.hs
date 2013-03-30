@@ -1,4 +1,4 @@
-module Static where
+module StaticAnalysis where
 import AbstractSyntax
 import Data.Tree
 import qualified Data.Map as M
@@ -19,8 +19,6 @@ frameLookup f s = case M.lookup s (symTable f) of
                     Nothing -> case parentFrame f of
                                 Just f' -> frameLookup f' s
                                 Nothing -> Nothing
-
-
 
 ftree :: Stmt -> ATree Type
 ftree s = let t1 = stree s

@@ -24,6 +24,7 @@ parseLValue = do
                 return $ foldl' LArr (LVar id) indices
               <?> "L-value"
 
+parseDeclaration :: Parser Decl
 parseDeclaration = do
   t <- parseType
   id <- identifier
@@ -31,6 +32,7 @@ parseDeclaration = do
   return $ Decl t id
   <?> "declaration"
 
+parseType :: Parser Type
 parseType = do
   prim <- foldr1 (<|>) $ map (\s -> do{reserved s;return s}) ["int", "float", "char", "bool"]
   dims <- many (brackets integer)
@@ -45,7 +47,7 @@ parseExpr    :: Parser Expr
 parseExpr    = buildExpressionParser table factor <?> "expression" 
                 where
     table   = [
-               [uop "!", uop "-"], -- TODO ongelma: noita voi olla vain yksi, eli !!(x < y) ei kelpaa, eikä --y
+               [uop "!", uop "-"], -- TODO ongelma: noita voi olla vain yksi, eli !!(x < y), --y ei kelpaa, 
                [bop "*" AssocLeft, bop "/" AssocLeft],
                [bop "+" AssocLeft, bop "-" AssocLeft],
                map (\s -> bop s AssocNone) ["<=",">=","<",">"],
@@ -85,8 +87,7 @@ parseExpr    = buildExpressionParser table factor <?> "expression"
              ; return $ EFetch v
              } <?> "variable name"
 
--- Tälle annetaan varsinainen ohjelmakoodi
-parseStmt :: Parser Stmt -- tuolla käytetään NOP:na pelkkää puolipistettä: if(x<y) ; else ... ei ole kuitenkaan toteutettu
+parseStmt :: Parser Stmt
 parseStmt = let
     assign = do
         v <- parseLValue
