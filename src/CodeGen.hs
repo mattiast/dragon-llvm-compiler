@@ -70,7 +70,7 @@ evalPtr f lvalue = do
             Just (typ,varName) = frameLookup f var
         (vinds,ss) <- fmap unzip $ sequence [ evalExpr f i | i <- inds ]
         vptr <- genvar "%ptr"
-        return $ (vptr, concat ss ++ unlines [vptr ++ " = getelementptr " ++
+        return (vptr, concat ss ++ unlines [vptr ++ " = getelementptr " ++
                                                  renderType typ ++ "* " ++ 
                                                  varName ++ ", i32 0" ++
                                                  concat [ ", i32 " ++ v | v <- vinds ] ])
@@ -116,17 +116,17 @@ evalExpr f expr@(EFetch lv) = do
         let Just resultType = exprType (fmap fst f) expr
         (ptr_reg, eval_ptr) <- evalPtr f lv
         v1 <- genvar "%reg"
-        return $ (v1, eval_ptr ++ unlines [ v1 ++ " = load " ++ renderType resultType ++ "* " ++ ptr_reg])
+        return (v1, eval_ptr ++ unlines [ v1 ++ " = load " ++ renderType resultType ++ "* " ++ ptr_reg])
 evalExpr f (ENum n) = do
         v1 <- genvar "%reg"
-        return $ (v1, unlines [v1 ++ " = add i32 " ++ show n ++ ", 0"])
+        return (v1, unlines [v1 ++ " = add i32 " ++ show n ++ ", 0"])
 evalExpr f (EReal n) = do
         v1 <- genvar "%reg"
-        return $ (v1, unlines [v1 ++ " = fadd float " ++ show n ++ ", 0.0"])
+        return (v1, unlines [v1 ++ " = fadd float " ++ show n ++ ", 0.0"])
 evalExpr f (EBool b) = do
         v1 <- genvar "%reg"
         let val = if b then "true" else "false"
-        return $ (v1, unlines [v1 ++ " = add i1 " ++ val ++ ", 0"])
+        return (v1, unlines [v1 ++ " = add i1 " ++ val ++ ", 0"])
 evalExpr f (EBin op e1 e2) = do
         (v1,s1) <- evalExpr f e1
         (v2,s2) <- evalExpr f e2
@@ -145,7 +145,7 @@ evalExpr f (EBin op e1 e2) = do
                           _ | t1 == t2 -> ""
                           (TInt,TFloat) -> unOpStr "i2f" TInt (c1,v1) ++ "\n"
                           (TFloat,TInt) -> unOpStr "i2f" TInt (c2,v2) ++ "\n"
-        return $ (v3, s1 ++ s2 ++ eval_cast ++
+        return (v3, s1 ++ s2 ++ eval_cast ++
                       unlines [binOpStr op (if t1 == t2 then t1 else TFloat) (v3,c1,c2)])
 evalExpr f (EUn op e1) = do
         (v1,s1) <- evalExpr f e1
