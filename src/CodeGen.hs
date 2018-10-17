@@ -71,10 +71,10 @@ evalPtr f lvalue = do
         (vinds,ss) <- fmap unzip $ sequence [ evalExpr f i | i <- inds ]
         vptr <- genvar "%ptr"
         return (vptr, concat ss ++ unlines [vptr ++ " = getelementptr " ++
-                                                 renderType typ ++ "* " ++ 
+                                                 renderType typ ++ "* " ++
                                                  varName ++ ", i32 0" ++
                                                  concat [ ", i32 " ++ v | v <- vinds ] ])
-        
+
 binOpStr :: BinOp -> Type -> (Var,Var,Var) -> String
 -- aritmeettiset
 binOpStr op t        (r0,r1,r2)  = r0 ++ " = " ++ opStr ++ " " ++ renderType t ++ " " ++ r1 ++ ", " ++ r2 where
@@ -133,15 +133,15 @@ evalExpr f (EBin op e1 e2) = do
         v3 <- genvar "%reg"
         let Just t1 = exprType (fmap fst f) e1
             Just t2 = exprType (fmap fst f) e2
-	(c1,c2) <- case (t1,t2) of
-		_ | t1 == t2 -> return (v1,v2)
-		(TInt,TFloat) -> do
-			r <- genvar "%cast"
-			return (r,v2)
-		(TFloat,TInt) -> do
-			r <- genvar "%cast"
-			return (v1,r)
-	let eval_cast = case (t1,t2) of
+        (c1,c2) <- case (t1,t2) of
+                _ | t1 == t2 -> return (v1,v2)
+                (TInt,TFloat) -> do
+                        r <- genvar "%cast"
+                        return (r,v2)
+                (TFloat,TInt) -> do
+                        r <- genvar "%cast"
+                        return (v1,r)
+        let eval_cast = case (t1,t2) of
                           _ | t1 == t2 -> ""
                           (TInt,TFloat) -> unOpStr "i2f" TInt (c1,v1) ++ "\n"
                           (TFloat,TInt) -> unOpStr "i2f" TInt (c2,v2) ++ "\n"
@@ -162,12 +162,12 @@ evalStmt (Node (SIf b s1 s2, f) [t1,t2]) = do
         (test_reg,eval_test) <- evalExpr f b
         code1 <- evalStmt t1
         code2 <- evalStmt t2
-        return $ eval_test ++ 
+        return $ eval_test ++
                  "br i1 " ++ test_reg ++ ", label %" ++ lbl_true ++ ", label %" ++ lbl_false ++ "\n" ++
                  lbl_true ++ ":\n" ++
                  code1 ++
                  "br label %" ++ lbl_end ++ "\n" ++
-                 lbl_false ++ ":\n" ++ 
+                 lbl_false ++ ":\n" ++
                  code2 ++
                  "br label %" ++ lbl_end ++ "\n" ++
                  lbl_end ++ ":\n"
@@ -182,7 +182,7 @@ evalStmt (Node (SWhile b s1, f) [t1]) = do
         return $ "br label %" ++ lbl_test ++ "\n" ++
                  lbl_begin ++ ":\n" ++
                  code1 ++
-		 "br label %" ++ lbl_test ++ "\n" ++
+                 "br label %" ++ lbl_test ++ "\n" ++
                  lbl_test ++ ":\n" ++
                  eval_test ++
                  "br i1 " ++ test_reg ++ ", label %" ++ lbl_begin ++ ", label %" ++ lbl_end ++ "\n" ++
@@ -196,9 +196,9 @@ evalStmt (Node (SDoWhile b s1, f) [t1]) = do
         code1 <- evalStmt t1
         pop_while
         return $ "br label %" ++ lbl_begin ++ "\n" ++
-	         lbl_begin ++ ":\n" ++
+                 lbl_begin ++ ":\n" ++
                  code1 ++
-		 "br label %" ++ lbl_test ++ "\n" ++
+                 "br label %" ++ lbl_test ++ "\n" ++
                  lbl_test ++ ":\n" ++
                  eval_test ++
                  "br i1 " ++ test_reg ++ ", label %" ++ lbl_begin ++ ", label %" ++ lbl_end ++ "\n" ++
@@ -210,17 +210,17 @@ evalStmt (Node (SAssign l e1, f) []) = do
         (val_reg, eval_e) <- evalExpr f e1
         (ptr_reg, eval_ptr) <- evalPtr f l
         let Just resultType = exprType (fmap fst f) e1
-	    Just lvalueType = exprType (fmap fst f) (EFetch l)
-	casted_reg <- if resultType == lvalueType then return val_reg else genvar "%reg"
-	let eval_cast = case (lvalueType,resultType) of
-		(tl,tr) | tl == tr -> ""
-		(tl@TInt,tr@TFloat) -> unOpStr "f2i" tr (casted_reg,val_reg) ++ "\n"
-		(tl@TFloat,tr@TInt) -> unOpStr "i2f" tr (casted_reg,val_reg) ++ "\n"
-	
+            Just lvalueType = exprType (fmap fst f) (EFetch l)
+        casted_reg <- if resultType == lvalueType then return val_reg else genvar "%reg"
+        let eval_cast = case (lvalueType,resultType) of
+                (tl,tr) | tl == tr -> ""
+                (tl@TInt,tr@TFloat) -> unOpStr "f2i" tr (casted_reg,val_reg) ++ "\n"
+                (tl@TFloat,tr@TInt) -> unOpStr "i2f" tr (casted_reg,val_reg) ++ "\n"
+        
         return $ eval_e ++
                  eval_ptr ++
-		 eval_cast ++
-                 "store " ++ renderType lvalueType ++ " " ++ casted_reg ++ ", " ++ 
+                 eval_cast ++
+                 "store " ++ renderType lvalueType ++ " " ++ casted_reg ++ ", " ++
                  renderType lvalueType ++ "* " ++ ptr_reg ++ "\n"
 evalStmt (Node (SBreak,f) []) = do
         lbl_break <- break_label

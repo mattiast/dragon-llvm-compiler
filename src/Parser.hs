@@ -1,10 +1,11 @@
 module Parser where
 import AbstractSyntax
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec hiding ((<|>), many)
 import Text.ParserCombinators.Parsec.Expr
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language( javaStyle )
 import Data.List
+import Control.Applicative
 
 
 -- ohjelma on pelkkä block-statement
@@ -69,23 +70,14 @@ parseExpr    = buildExpressionParser table factor <?> "expression"
         <|> try lvalue 
         <?> "simple expression"
 
-    truelit = do
-                reserved "true"
-                return $ EBool True
-    falselit = do
-                reserved "false"
-                return $ EBool False
-    number  = do{ n <- integer
-            ; return $ ENum n
-            }
+    truelit = reserved "true" *> pure (EBool True)
+    falselit = reserved "false" *> pure (EBool False)
+    number  = ENum <$> integer
         <?> "number"
-    real  = do{ n <- float
-            ; return $ EReal n
-            }
+    real  = EReal <$> float
         <?> "real number"
-    lvalue = do{ v <- parseLValue
-             ; return $ EFetch v
-             } <?> "variable name"
+    lvalue = EFetch <$> parseLValue
+        <?> "variable name"
 
 parseStmt :: Parser Stmt
 parseStmt = let
