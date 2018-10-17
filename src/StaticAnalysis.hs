@@ -93,23 +93,23 @@ exprType f (EUn "-" e1) = do
 checkTypes :: ATree Type -> Either String ()
 checkTypes decorTree = let 
                    helper (s@(SAssign lvalue expr),f) = do
-						    t1 <- exprType f (EFetch lvalue)
-						    t2 <- exprType f expr
-						    case (t1,t2) of
-						       _ | t1 == t2 || all (`elem` [TInt,TFloat]) [t1,t2] -> return ()
-						       otherwise -> fail $ "Expression " ++ show expr ++ " has type " ++
-									   show t1 ++ ", variable " ++ show lvalue ++
-									   " has incompatible type " ++ show t2 ++
-									   " in statement " ++ show s
+                                                    t1 <- exprType f (EFetch lvalue)
+                                                    t2 <- exprType f expr
+                                                    case (t1,t2) of
+                                                       _ | t1 == t2 || all (`elem` [TInt,TFloat]) [t1,t2] -> return ()
+                                                         | otherwise -> fail $ "Expression " ++ show expr ++ " has type " ++
+                                                                           show t1 ++ ", variable " ++ show lvalue ++
+                                                                           " has incompatible type " ++ show t2 ++
+                                                                           " in statement " ++ show s
                    helper (SBlock _ _, _) = return () -- ei tossa oo mitää
                    helper (s@(SIf b _ _),f) = checkBool b s f
                    helper (s@(SWhile b _),f) = checkBool b s f
                    helper (s@(SDoWhile b _),f) = checkBool b s f
                    helper (SBreak , _) = return ()
-		   checkBool b s f = do
-		   		t1 <- exprType f b
-				case t1 of
-				  TBool -> return ()
-				  _ -> fail $ "Test must have boolean type, has " ++ show t1 ++ 
-				  	      " in statement " ++ show s
+                   checkBool b s f = do
+                                t1 <- exprType f b
+                                case t1 of
+                                  TBool -> return ()
+                                  _ -> fail $ "Test must have boolean type, has " ++ show t1 ++ 
+                                              " in statement " ++ show s
                   in F.forM_ decorTree helper
