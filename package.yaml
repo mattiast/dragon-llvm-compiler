@@ -1,0 +1,25 @@
+name:                dragon-llvm-compiler
+
+dependencies:
+- base >= 4.7 && < 5
+- mtl
+- containers
+
+
+library:
+  source-dirs: src
+  ghc-options: -Wall -Wincomplete-uni-patterns -Wincomplete-record-updates
+  dependencies:
+  - parsec
+
+executables:
+  dragon-exe:
+    main:                compiler.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - dragon-llvm-compiler
+    - optparse-applicative
