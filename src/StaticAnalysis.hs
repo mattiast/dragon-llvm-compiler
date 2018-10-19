@@ -4,6 +4,7 @@ import Data.Tree
 import qualified Data.Map as M
 import qualified Data.Foldable as F
 import Control.Arrow
+import Control.Applicative
 import Control.Monad.Error
 
 data Frame t = Frame {symTable :: (M.Map String t), parentFrame :: Maybe (Frame t)} deriving (Eq,Ord,Show) 
@@ -25,18 +26,16 @@ ftree s = let t1 = stree s
               t2 = fmap (id &&& symtab) t1
               t3 = fmap (id *** (\m -> Frame m Nothing)) t2
             in obeyParents t3 where
-            f f1 (s,(Frame m _)) = (s,Frame m (Just $ snd f1))
-
             symtab :: Stmt -> M.Map String Type
-            symtab (SBlock dd ss) = M.fromList (map (\(Decl t v) -> (v,t)) dd)
+            symtab (SBlock dd _) = M.fromList (map (\(Decl t v) -> (v,t)) dd)
             symtab _ = M.empty
 
-            stree :: Stmt -> Tree Stmt
-            stree s@(SBlock dd ss) = Node s (map stree ss)
-            stree s@(SIf b s1 s2) = Node s (map stree [s1,s2])
-            stree s@(SWhile b s1) = Node s (map stree [s1])
-            stree s@(SDoWhile b s1) = Node s (map stree [s1])
-            stree x = Node x []
+stree :: Stmt -> Tree Stmt
+stree s@(SBlock _ ss) = Node s (map stree ss)
+stree s@(SIf _ s1 s2) = Node s (map stree [s1,s2])
+stree s@(SWhile _ s1) = Node s (map stree [s1])
+stree s@(SDoWhile _ s1) = Node s (map stree [s1])
+stree x = Node x []
 
 obeyParents :: ATree t -> ATree t
 obeyParents = paratree f where
@@ -50,7 +49,7 @@ paratree f (Node a ts) = let ts1 = map child ts
                            child (Node a1 tt) = Node (f a a1) tt
 
 -- yleinen tyyppi, voi olla esim Maybe Type tai Either String Type
-exprType :: Monad m => Frame Type -> Expr -> m Type 
+exprType :: (Monad m, Alternative m) => Frame Type -> Expr -> m Type 
 exprType _ (ENum _) = return TInt
 exprType _ (EReal _) = return TFloat
 exprType _ (EBool _) = return TBool
@@ -65,17 +64,17 @@ exprType f (EBin op e1 e2)
     | op `elem` ["+","-","*","/"] = do -- t‰ss‰ voi olla int ja float, mutta vertailussa pit‰‰ olla sama tyyppi
                                       t1 <- exprType f e1
                                       t2 <- exprType f e2
-                                      True <- return $ all (`elem` [TInt,TFloat]) [t1,t2]
+                                      guard $ all (`elem` [TInt,TFloat]) [t1,t2]
                                       return (if t1 == t2 then t1 else TFloat)
     | op `elem` ["==","!="] = do
                                       t1 <- exprType f e1
                                       t2 <- exprType f e2
-                                      True <- return (t1 == t2 && t1 `elem` [TInt,TFloat,TBool,TChar])
+                                      guard (t1 == t2 && t1 `elem` [TInt,TFloat,TBool,TChar])
                                       return TBool
     | op `elem` ["<",">","<=",">="] = do
                                       t1 <- exprType f e1
                                       t2 <- exprType f e2
-                                      True <- return (t1 == t2 && t1 `elem` [TInt,TFloat])
+                                      guard (t1 == t2 && t1 `elem` [TInt,TFloat])
                                       return TBool
     | op `elem` ["||","&&"] = do
                                       TBool <- exprType f e1
