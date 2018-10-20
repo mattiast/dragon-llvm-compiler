@@ -6,7 +6,7 @@ import Data.Tree
 import qualified Data.Traversable as T
 import qualified Data.Foldable as F
 import qualified Data.Map as M
-import CodeGen2(newEvalPtr)
+import CodeGen2(newEvalPtr, newLoad)
 
 type NameState t = StateT (M.Map String Int) (State [Int]) t
 
@@ -102,7 +102,7 @@ evalExpr f expr@(EFetch lv) = do
         let Just resultType = exprType (fmap fst f) expr
         (ptr_reg, eval_ptr) <- evalPtr f lv
         v1 <- genvar "%reg"
-        return (v1, eval_ptr ++ unlines [ v1 ++ " = load " ++ renderType resultType ++ "* " ++ ptr_reg])
+        return (v1, eval_ptr ++ unlines [ newLoad v1 resultType ptr_reg])
 evalExpr f (ENum n) = do
         v1 <- genvar "%reg"
         return (v1, unlines [v1 ++ " = add i32 " ++ show n ++ ", 0"])

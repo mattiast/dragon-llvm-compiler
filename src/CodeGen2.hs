@@ -39,3 +39,9 @@ ind v = L.LocalReference (L.IntegerType 32) v
 
 newEvalPtr :: String -> Type -> String -> [String] -> String
 newEvalPtr vptr typ var vinds = likePtr vptr typ var vinds & ppll & T.unpack
+
+likeLoad :: String -> Type -> String -> L.Named L.Instruction
+likeLoad v1 typ vptr = (changeVar v1) L.:= L.Load False (L.LocalReference (ptr $ convertType typ) (changeVar vptr)) Nothing 4 []
+
+newLoad :: String -> Type -> String -> String
+newLoad v1 typ vptr = likeLoad v1 typ vptr & ppll & T.unpack
