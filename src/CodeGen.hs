@@ -52,14 +52,6 @@ renderType TBool = "i1"
 renderType TFloat = "float"
 renderType (TArr t1 n) = "[ " ++ show n ++ " x " ++ renderType t1 ++ " ]"
 
--- muistin varaukset alkuun, tolle annetaan varNames:n tulos
-allocations :: ATree (Type,Var) -> String
-allocations t = let
-        simpleAlloc (t,v) = v ++ " = alloca " ++ renderType t ++ "\n"
-        t1 = fmap (M.fold (++) "" . M.map simpleAlloc . symTable . snd) t
-        in F.fold t1
-
-
 evalPtr :: Frame (Type,Var) -> LValue -> NameState (Var, String)
 evalPtr f lvalue = do
         let (var,inds) = extractLValue lvalue
