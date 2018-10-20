@@ -13,16 +13,12 @@ type NameState t = StateT (M.Map String Int) (State [Int]) t
 genvar :: Var -> NameState Var
 genvar prefix = do
         tbl <- get
-        put $ case M.lookup prefix tbl of
-                Just i -> M.update (Just . (+1)) prefix tbl
-                Nothing -> M.insert prefix 1 tbl
-        tbl1 <- get
-        let Just i = M.lookup prefix tbl1
+        let i = maybe 1 (+1) $ M.lookup prefix tbl
+        put $ M.insert prefix i tbl
         return $ prefix ++ show i
 pop_while :: NameState ()
 pop_while = do
-        w:ws <- lift get
-        lift (put ws)
+        lift (modify tail)
 push_while :: NameState ()
 push_while = do
         tbl <- get

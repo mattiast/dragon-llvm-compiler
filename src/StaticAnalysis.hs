@@ -5,6 +5,7 @@ import qualified Data.Map as M
 import qualified Data.Foldable as F
 import Control.Arrow
 import Control.Applicative
+-- this is only used to get orphan instance for Alternative (Either String) blehhhh
 import Control.Monad.Error
 
 data Frame t = Frame {symTable :: (M.Map String t), parentFrame :: Maybe (Frame t)} deriving (Eq,Ord,Show) 
