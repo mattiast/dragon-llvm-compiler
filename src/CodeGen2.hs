@@ -3,6 +3,8 @@ import StaticAnalysis
 import AbstractSyntax
 import Control.Monad.State
 import Data.Tree
+import Data.Function((&))
+import qualified Data.Text.Lazy as T
 import Data.String(fromString)
 import qualified Data.Traversable as T
 import qualified Data.Foldable as F
@@ -10,6 +12,7 @@ import qualified Data.Map as M
 
 import qualified LLVM.AST as L
 import LLVM.Pretty
+import LLVM.AST.Type(ptr)
 
 convertType :: Type -> L.Type
 convertType tp = case tp of
@@ -23,7 +26,16 @@ allocations :: ATree (Type,Var) -> [L.Named L.Instruction]
 allocations t = do
     (_, x) <- F.toList t
     (tp, var) <- F.toList $ symTable x
-    return $ (fromString $ changeVar var) L.:= L.Alloca (convertType tp) Nothing 4 []
+    return $ (changeVar var) L.:= L.Alloca (convertType tp) Nothing 4 []
 
-changeVar :: String -> String
-changeVar ('%':var) = var
+changeVar :: String -> L.Name
+changeVar ('%':var) = fromString var
+
+likePtr :: String -> Type -> String -> [String] -> L.Named L.Instruction
+likePtr vptr typ var vinds = changeVar vptr L.:= L.GetElementPtr False (L.LocalReference (ptr $ convertType typ) (changeVar var)) (map (ind . changeVar) vinds) []
+
+ind :: L.Name -> L.Operand
+ind v = L.LocalReference (L.IntegerType 32) v
+
+newEvalPtr :: String -> Type -> String -> [String] -> String
+newEvalPtr vptr typ var vinds = likePtr vptr typ var vinds & ppll & T.unpack

@@ -6,6 +6,7 @@ import Data.Tree
 import qualified Data.Traversable as T
 import qualified Data.Foldable as F
 import qualified Data.Map as M
+import CodeGen2(newEvalPtr)
 
 type NameState t = StateT (M.Map String Int) (State [Int]) t
 
@@ -58,10 +59,7 @@ evalPtr f lvalue = do
             Just (typ,varName) = frameLookup f var
         (vinds,ss) <- fmap unzip $ sequence [ evalExpr f i | i <- inds ]
         vptr <- genvar "%ptr"
-        return (vptr, concat ss ++ unlines [vptr ++ " = getelementptr " ++
-                                                 renderType typ ++ "* " ++
-                                                 varName ++ ", i32 0" ++
-                                                 concat [ ", i32 " ++ v | v <- vinds ] ])
+        return (vptr, concat ss ++ newEvalPtr vptr typ varName vinds ++ "\n")
 
 binOpStr :: BinOp -> Type -> (Var,Var,Var) -> String
 -- aritmeettiset
