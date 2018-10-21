@@ -13,6 +13,7 @@ import qualified Data.Map as M
 import qualified LLVM.AST as L
 import LLVM.Pretty
 import LLVM.AST.Type(ptr)
+import LLVM.AST.Constant
 
 convertType :: Type -> L.Type
 convertType tp = case tp of
@@ -32,7 +33,16 @@ changeVar :: String -> L.Name
 changeVar ('%':var) = fromString var
 
 likePtr :: String -> Type -> String -> [String] -> L.Named L.Instruction
-likePtr vptr typ var vinds = changeVar vptr L.:= L.GetElementPtr False (L.LocalReference (ptr $ convertType typ) (changeVar var)) (map (ind . changeVar) vinds) []
+likePtr vptr typ var vinds =
+  changeVar vptr L.:=
+  L.GetElementPtr
+    False
+    (L.LocalReference (ptr $ convertType typ) (changeVar var))
+    (i32 0 : map (ind . changeVar) vinds)
+    []
+
+i32 :: Integer -> L.Operand
+i32 x = L.ConstantOperand (Int 32 x)
 
 ind :: L.Name -> L.Operand
 ind v = L.LocalReference (L.IntegerType 32) v
