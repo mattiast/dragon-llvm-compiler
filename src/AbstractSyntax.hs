@@ -17,11 +17,13 @@ module AbstractSyntax where
 
 type Var = String
 
-data LValue
+data LValueAnn t
   = LVar Var
-  | LArr LValue
-         Expr
+  | LArr (LValueAnn t)
+         (ExprAnn t)
   deriving (Eq, Ord)
+
+type LValue = LValueAnn ()
 
 data Type
   = TInt

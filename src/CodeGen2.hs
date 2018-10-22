@@ -172,3 +172,31 @@ stmt (SIf f cond tstmt fstmt) = do
     stmt fstmt
     br lbl_end
     emitBlockStart lbl_end
+stmt (SWhile f b s1) = do
+        lbl_test <- freshName "test"
+        lbl_begin <- freshName "begin_while"
+        lbl_end <- freshName "end_while"
+        br lbl_test
+        emitBlockStart lbl_begin
+        -- push_while
+        stmt s1
+        -- pop_while
+        br lbl_test
+        emitBlockStart lbl_test
+        test_reg <- expr f b
+        condBr test_reg lbl_begin lbl_end
+        emitBlockStart lbl_end
+stmt (SDoWhile f b s1) = do
+        lbl_test <- freshName "test"
+        lbl_begin <- freshName "begin_while"
+        lbl_end <- freshName "end_while"
+        br lbl_begin
+        emitBlockStart lbl_begin
+        -- push_while
+        stmt s1
+        -- pop_while
+        br lbl_test
+        emitBlockStart lbl_test
+        test_reg <- expr f b
+        condBr test_reg lbl_begin lbl_end
+        emitBlockStart lbl_end
