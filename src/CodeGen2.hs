@@ -4,7 +4,6 @@ module CodeGen2 where
 import StaticAnalysis
 import AbstractSyntax
 import Control.Monad.State
-import Control.Monad.Reader
 import Data.Function((&))
 import qualified Data.Text.Lazy as T
 import Data.String(fromString)
@@ -34,7 +33,7 @@ convertType tp = case tp of
 allocations :: ATree (TType,Var) -> [L.Named L.Instruction]
 allocations t = do
     (_, x) <- F.toList t
-    (tp, var) <- F.toList $ symTable x
+    (tp, var) <- F.toList $ head $ symTables x
     return $ (changeVar var) L.:= L.Alloca (convertType tp) Nothing 4 []
 
 changeVar :: String -> L.Name
@@ -150,13 +149,18 @@ extractIndices (EArrayInd _ x y) =
     in (f, r ++ [y])
 extractIndices e = (e, [])
 
-traverseATree :: Applicative f => (a -> f b) -> ATree a -> f (ATree b)
-traverseATree h = traverse . traverse . traverse $ h
-
-newallocations :: MonadIRBuilder m => ATree TType -> m (ATree (TType, L.Operand))
-newallocations = traverseATree $ \tp -> do
-    reg <- alloca (convertType tp) Nothing 4
-    return (tp, reg)
+newnewvars :: (MonadIRBuilder m) => StmtA (Frame TType) t -> m (StmtA (Frame L.Operand) t)
+newnewvars = go (Frame []) where
+    go f s = case s of
+        SBlock (Frame (d:_)) dd ss -> do
+            d' <- traverse (\t -> alloca (convertType t) Nothing 4) d
+            let f' = Frame (d':symTables f)
+            (SBlock f' dd) <$> (traverse (go f') ss)
+        SIf _ b s1 s2 -> (SIf f b) <$> (go f s1) <*> (go f s2)
+        SDoWhile _ b s1 -> (SDoWhile f b) <$> (go f s1)
+        SWhile _ b s1 -> (SWhile f b) <$> (go f s1)
+        SAssign _ lv e -> pure (SAssign f lv e)
+        SBreak -> pure SBreak
 
 stmt :: (MonadIRBuilder m) => StmtA (Frame L.Operand) TType -> m ()
 stmt (SIf f cond tstmt fstmt) = do

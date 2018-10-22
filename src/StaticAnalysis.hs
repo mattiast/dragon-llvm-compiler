@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor #-}
 module StaticAnalysis where
 import AbstractSyntax
 import Data.Tree
@@ -7,32 +8,24 @@ import Control.Arrow
 import Control.Applicative
 -- this is only used to get orphan instance for Alternative (Either String) blehhhh
 import Control.Monad.Error
+import Data.Function((&))
+import Data.Monoid
 
-data Frame t = Frame {symTable :: (M.Map String t), parentFrame :: Maybe (Frame t)} deriving (Eq,Ord,Show) 
-
-instance Functor Frame where
-    fmap f (Frame tbl par) = Frame (M.map f tbl) (fmap (fmap f) par)
-
-instance Foldable Frame where
-    foldMap h (Frame table parent) = foldMap h table <> foldMap (foldMap h) parent
-
-instance Traversable Frame where
-    traverse h (Frame table parent) = Frame <$> traverse h table <*> traverse (traverse h) parent
+newtype Frame t = Frame { symTables :: [M.Map String t]} deriving (Eq,Ord,Show, Functor) 
 
 type ATree t = Tree (Stmt, Frame t)
 
 frameLookup :: Frame t -> String -> Maybe t
-frameLookup f s = case M.lookup s (symTable f) of
-                    Just t -> Just t
-                    Nothing -> case parentFrame f of
-                                Just f' -> frameLookup f' s
-                                Nothing -> Nothing
+frameLookup f s = symTables f
+    & fmap (M.lookup s)
+    & foldMap First
+    & getFirst
 
 newftree :: Stmt -> StmtA (Frame TType) ()
-newftree stmt = go (Frame M.empty Nothing) stmt where
+newftree stmt = go (Frame []) stmt where
     go f s = case s of
         SBlock () dd ss -> let dict = M.fromList [ (v, t) | Decl t v <- dd ]
-                               f' = Frame dict (Just f)
+                               f' = Frame (dict:symTables f)
                             in SBlock f' dd (fmap (go f') ss)
         SIf () b s1 s2 -> SIf f b (go f s1) (go f s2)
         SDoWhile () b s1 -> SDoWhile f b (go f s1)
@@ -55,8 +48,7 @@ findtypes = go where
 
 ftree :: Stmt -> ATree TType
 ftree s = let t1 = stree s
-              t2 = fmap (id &&& symtab) t1
-              t3 = fmap (id *** (\m -> Frame m Nothing)) t2
+              t3 = fmap (id &&& (\m -> Frame [symtab m])) t1
             in obeyParents t3 where
             symtab :: Stmt -> M.Map String TType
             symtab (SBlock () dd _) = M.fromList (map (\(Decl t v) -> (v,t)) dd)
@@ -71,7 +63,7 @@ stree x = Node x []
 
 obeyParents :: ATree t -> ATree t
 obeyParents = paratree f where
-            f f1 (s,(Frame m _)) = (s,Frame m (Just $ snd f1))
+            f f1 (s,(Frame (m:_))) = (s,Frame (m:symTables (snd f1)))
 
 paratree :: (a -> a -> a) -> Tree a -> Tree a
 -- f ottaa vanhemman ja lapsen, ja sijoittaa tuloksen lapseen

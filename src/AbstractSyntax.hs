@@ -3,7 +3,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 {- Grammar:
@@ -19,7 +18,6 @@ E  ->  E + E | E - E | E * E | E / E | L | ( B ) | num
 L  ->  L [ B ] | id
 -}
 module AbstractSyntax where
-import GHC.Generics
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
@@ -31,7 +29,7 @@ data LValueAnn t
   = LVar Var
   | LArr (LValueAnn t)
          (ExprAnn t)
-  deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
+  deriving (Eq, Ord, Functor, Foldable, Traversable)
 
 type LValue = LValueAnn ()
 
@@ -42,7 +40,7 @@ data TType
   | TBool
   | TArr TType
          Int
-  deriving (Eq, Ord, Generic)
+  deriving (Eq, Ord)
 
 type BinOp = String
 
@@ -61,7 +59,7 @@ data ExprAnn t
          (ExprAnn t)
   | EUn t UnOp
         (ExprAnn t)
-    deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
+    deriving (Eq, Ord, Functor, Foldable, Traversable)
 
 getTag :: ExprAnn t -> t
 getTag (ENum t _) = t
@@ -90,7 +88,7 @@ data StmtA s e
   | SDoWhile s (ExprAnn e)
              (StmtA s e)
   | SBreak
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Ord, Show)
 
 
 type Stmt = StmtA () ()

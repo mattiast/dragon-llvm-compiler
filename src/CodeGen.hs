@@ -39,9 +39,9 @@ varNames t = let
                 ts1 <- sequence [helper tt | tt <- ts]
                 return $ Node (s,f1) ts1
         uniks :: Frame TType -> NameState (Frame (TType,Var))
-        uniks (Frame table _)  = do
+        uniks (Frame (table: _))  = do
                 tbl <- T.mapM (\t -> do{v <- genvar "%var"; return (t,v)}) table
-                return $ Frame tbl Nothing
+                return $ Frame [tbl]
         in do
                 tree <- helper t
                 return $ obeyParents tree
