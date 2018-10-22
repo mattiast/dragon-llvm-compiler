@@ -151,6 +151,14 @@ extractIndices (EArrayInd _ x y) =
     in (f, r ++ [y])
 extractIndices e = (e, [])
 
+traverseATree :: Applicative f => (a -> f b) -> ATree a -> f (ATree b)
+traverseATree h = traverse . traverse . traverse $ h
+
+newallocations :: MonadIRBuilder m => ATree Type -> m (ATree (Type, L.Operand))
+newallocations = traverseATree $ \tp -> do
+    reg <- alloca (convertType tp) Nothing 4
+    return (tp, reg)
+
 stmt :: (MonadIRBuilder m, MonadReader (M.Map Var L.Operand) m) => StmtA Type -> m ()
 stmt (SIf cond tstmt fstmt) = do
     lbl_true <- freshName "if_true"

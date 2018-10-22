@@ -13,6 +13,12 @@ data Frame t = Frame {symTable :: (M.Map String t), parentFrame :: Maybe (Frame 
 instance Functor Frame where
     fmap f (Frame tbl par) = Frame (M.map f tbl) (fmap (fmap f) par)
 
+instance Foldable Frame where
+    foldMap h frame = foldMap h (symTable frame) <> (foldMap $ foldMap h) (parentFrame frame)
+
+instance Traversable Frame where
+    traverse h (Frame table parent) = Frame <$> traverse h table <*> traverse (traverse h) parent
+
 type ATree t = Tree (Stmt, Frame t)
 
 frameLookup :: Frame t -> String -> Maybe t
