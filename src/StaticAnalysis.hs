@@ -40,6 +40,19 @@ newftree stmt = go (Frame M.empty Nothing) stmt where
         SAssign () lv e -> SAssign f lv e
         SBreak -> SBreak
 
+findtypes :: (Monad m, Alternative m) => StmtA (Frame Type) () -> m (StmtA (Frame Type) Type)
+findtypes = go where
+    go stmt = case stmt of
+        SBlock f dd ss -> (SBlock f dd) <$> (traverse go ss)
+        SIf f b s1 s2 -> (SIf f) <$> (typedExpr f b) <*> (go s1) <*> (go s2)
+        SDoWhile f b s1 -> (SDoWhile f) <$> (typedExpr f b) <*> (go s1)
+        SWhile f b s1 -> (SWhile f) <$> (typedExpr f b) <*> (go s1)
+        SAssign f lv e -> (SAssign f) <$> (golv f lv) <*> (typedExpr f e)
+        SBreak -> pure SBreak
+    golv f lvalue = case lvalue of
+                    LVar v -> pure (LVar v)
+                    LArr lv e -> LArr <$> (golv f lv) <*> (typedExpr f e)
+
 ftree :: Stmt -> ATree Type
 ftree s = let t1 = stree s
               t2 = fmap (id &&& symtab) t1
