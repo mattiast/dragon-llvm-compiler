@@ -28,6 +28,18 @@ frameLookup f s = case M.lookup s (symTable f) of
                                 Just f' -> frameLookup f' s
                                 Nothing -> Nothing
 
+newftree :: Stmt -> StmtA (Frame Type) ()
+newftree stmt = go (Frame M.empty Nothing) stmt where
+    go f s = case s of
+        SBlock () dd ss -> let dict = M.fromList [ (v, t) | Decl t v <- dd ]
+                               f' = Frame dict (Just f)
+                            in SBlock f' dd (fmap (go f') ss)
+        SIf () b s1 s2 -> SIf f b (go f s1) (go f s2)
+        SDoWhile () b s1 -> SDoWhile f b (go f s1)
+        SWhile () b s1 -> SWhile f b (go f s1)
+        SAssign () lv e -> SAssign f lv e
+        SBreak -> SBreak
+
 ftree :: Stmt -> ATree Type
 ftree s = let t1 = stree s
               t2 = fmap (id &&& symtab) t1
