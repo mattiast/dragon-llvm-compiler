@@ -158,12 +158,12 @@ newallocations = traverseATree $ \tp -> do
     reg <- alloca (convertType tp) Nothing 4
     return (tp, reg)
 
-stmt :: (MonadIRBuilder m) => StmtA Type -> m ()
-stmt (SIf cond tstmt fstmt) = do
+stmt :: (MonadIRBuilder m) => StmtA (Frame L.Operand) Type -> m ()
+stmt (SIf f cond tstmt fstmt) = do
     lbl_true <- freshName "if_true"
     lbl_false <- freshName "if_false"
     lbl_end <- freshName "end_if"
-    test_reg <- expr undefined cond
+    test_reg <- expr f cond
     condBr test_reg lbl_true lbl_false
     emitBlockStart lbl_true
     stmt tstmt

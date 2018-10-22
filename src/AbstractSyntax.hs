@@ -65,22 +65,22 @@ data Decl =
        Var
   deriving (Eq, Ord, Show)
 
-data StmtA e
+data StmtA s e
   = SAssign LValue
             (ExprAnn e)
-  | SBlock [Decl]
-           [StmtA e]
-  | SIf (ExprAnn e)
-        (StmtA e)
-        (StmtA e)
-  | SWhile (ExprAnn e)
-           (StmtA e)
-  | SDoWhile (ExprAnn e)
-             (StmtA e)
+  | SBlock s [Decl]
+           [StmtA s e]
+  | SIf s (ExprAnn e)
+        (StmtA s e)
+        (StmtA s e)
+  | SWhile s (ExprAnn e)
+           (StmtA s e)
+  | SDoWhile s (ExprAnn e)
+             (StmtA s e)
   | SBreak
   deriving (Eq, Ord, Show)
 
-type Stmt = StmtA ()
+type Stmt = StmtA () ()
 
 -- TODO pretty printing
 instance Show (ExprAnn t) where

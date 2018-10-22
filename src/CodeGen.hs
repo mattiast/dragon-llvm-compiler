@@ -148,7 +148,7 @@ evalExpr f (EUn () op e1) = do
         return (v2, s1 ++ unlines [operStr])
 
 evalStmt :: ATree (Type,Var) -> NameState String
-evalStmt (Node (SIf b s1 s2, f) [t1,t2]) = do
+evalStmt (Node (SIf () b s1 s2, f) [t1,t2]) = do
         lbl_true <- genvar "if_true"
         lbl_false <- genvar "if_false"
         lbl_end <- genvar "end_if"
@@ -164,7 +164,7 @@ evalStmt (Node (SIf b s1 s2, f) [t1,t2]) = do
                  code2 ++
                  "br label %" ++ lbl_end ++ "\n" ++
                  lbl_end ++ ":\n"
-evalStmt (Node (SWhile b s1, f) [t1]) = do
+evalStmt (Node (SWhile () b s1, f) [t1]) = do
         lbl_test <- genvar "test"
         lbl_begin <- genvar "begin_while"
         lbl_end <- genvar "end_while"
@@ -180,7 +180,7 @@ evalStmt (Node (SWhile b s1, f) [t1]) = do
                  eval_test ++
                  "br i1 " ++ test_reg ++ ", label %" ++ lbl_begin ++ ", label %" ++ lbl_end ++ "\n" ++
                  lbl_end ++ ":\n"
-evalStmt (Node (SDoWhile b s1, f) [t1]) = do
+evalStmt (Node (SDoWhile () b s1, f) [t1]) = do
         lbl_test <- genvar "test"
         lbl_begin <- genvar "begin_while"
         lbl_end <- genvar "end_while"
@@ -196,7 +196,7 @@ evalStmt (Node (SDoWhile b s1, f) [t1]) = do
                  eval_test ++
                  "br i1 " ++ test_reg ++ ", label %" ++ lbl_begin ++ ", label %" ++ lbl_end ++ "\n" ++
                  lbl_end ++ ":\n"
-evalStmt (Node (SBlock dd ss, f) tt) = do
+evalStmt (Node (SBlock () dd ss, f) tt) = do
         codes <- sequence [ evalStmt t | t <- tt ]
         return $ concat codes
 evalStmt (Node (SAssign l e1, f) []) = do

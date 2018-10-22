@@ -95,7 +95,7 @@ parseStmt = let
         reserved "while"
         b <- parens parseExpr
         s <- stat
-        return $ SWhile b s
+        return $ SWhile () b s
         <?> "while statement"
     ifelse_stmt = do
         reserved "if"
@@ -103,18 +103,18 @@ parseStmt = let
         s1 <- stat
         reserved "else"
         s2 <- stat
-        return $ SIf b s1 s2
+        return $ SIf () b s1 s2
         <?> "if statement"
     if_stmt = do
         reserved "if"
         b <- parens parseExpr
         s <- stat
-        return $ SIf b s (SBlock [] [])
+        return $ SIf () b s (SBlock () [] [])
         <?> "if statement"
     block = braces (do
         dd <- many parseDeclaration
         ss <- many stat
-        return $ SBlock dd ss)
+        return $ SBlock () dd ss)
         <?> "block"
     break = do
         reserved "break"
@@ -127,7 +127,7 @@ parseStmt = let
         reserved "while"
         b <- parens parseExpr
         semi
-        return $ SDoWhile b s
+        return $ SDoWhile () b s
         <?> "do-while statement"
     stat = try assign <|> try while <|> try ifelse_stmt <|> try if_stmt <|> try block <|> try break <|> try dowhile
 

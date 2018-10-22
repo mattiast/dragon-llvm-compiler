@@ -34,14 +34,14 @@ ftree s = let t1 = stree s
               t3 = fmap (id *** (\m -> Frame m Nothing)) t2
             in obeyParents t3 where
             symtab :: Stmt -> M.Map String Type
-            symtab (SBlock dd _) = M.fromList (map (\(Decl t v) -> (v,t)) dd)
+            symtab (SBlock () dd _) = M.fromList (map (\(Decl t v) -> (v,t)) dd)
             symtab _ = M.empty
 
 stree :: Stmt -> Tree Stmt
-stree s@(SBlock _ ss) = Node s (map stree ss)
-stree s@(SIf _ s1 s2) = Node s (map stree [s1,s2])
-stree s@(SWhile _ s1) = Node s (map stree [s1])
-stree s@(SDoWhile _ s1) = Node s (map stree [s1])
+stree s@(SBlock () _ ss) = Node s (map stree ss)
+stree s@(SIf () _ s1 s2) = Node s (map stree [s1,s2])
+stree s@(SWhile () _ s1) = Node s (map stree [s1])
+stree s@(SDoWhile () _ s1) = Node s (map stree [s1])
 stree x = Node x []
 
 obeyParents :: ATree t -> ATree t
@@ -125,10 +125,10 @@ checkTypes decorTree = let
                                                                            show t1 ++ ", variable " ++ show lvalue ++
                                                                            " has incompatible type " ++ show t2 ++
                                                                            " in statement " ++ show s
-                   helper (SBlock _ _, _) = return () -- ei tossa oo mitää
-                   helper (s@(SIf b _ _),f) = checkBool b s f
-                   helper (s@(SWhile b _),f) = checkBool b s f
-                   helper (s@(SDoWhile b _),f) = checkBool b s f
+                   helper (SBlock () _ _, _) = return () -- ei tossa oo mitää
+                   helper (s@(SIf () b _ _),f) = checkBool b s f
+                   helper (s@(SWhile () b _),f) = checkBool b s f
+                   helper (s@(SDoWhile () b _),f) = checkBool b s f
                    helper (SBreak , _) = return ()
                    checkBool b s f = do
                                 t1 <- exprType f b
