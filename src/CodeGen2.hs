@@ -17,6 +17,9 @@ import LLVM.AST.Constant
 import LLVM.IRBuilder.Monad(MonadIRBuilder)
 import LLVM.IRBuilder.Constant
 import LLVM.IRBuilder.Instruction
+import LLVM.AST.FloatingPointPredicate hiding (True, False)
+import qualified LLVM.AST.IntegerPredicate as I
+import Prelude hiding (and, or)
 
 convertType :: Type -> L.Type
 convertType tp = case tp of
@@ -59,7 +62,45 @@ likeLoad v1 typ vptr = (changeVar v1) L.:= L.Load False (L.LocalReference (ptr $
 newLoad :: String -> Type -> String -> String
 newLoad v1 typ vptr = likeLoad v1 typ vptr & ppll & T.unpack
 
-
+bopTable ::
+     (MonadIRBuilder m)
+  => M.Map (BinOp, Type) (L.Operand -> L.Operand -> m L.Operand)
+bopTable = M.fromList
+    [ (("+", TInt), add)
+    , (("+", TFloat), fadd)
+    , (("-", TInt), sub)
+    , (("-", TFloat), fsub)
+    , (("*", TInt), mul)
+    , (("*", TFloat), fmul)
+    , (("/", TInt), sdiv)
+    , (("/", TFloat), fdiv)
+    , (("&&", TBool ), and)
+    , (("||", TBool ), or)
+    , (("==", TFloat), fcmp OEQ)
+    , (("!=", TFloat), fcmp ONE)
+    , (("<" , TFloat), fcmp OLT)
+    , (("<=", TFloat), fcmp OLE)
+    , ((">" , TFloat), fcmp OGT)
+    , ((">=", TFloat), fcmp OGE)
+    , (("==", TInt), icmp I.EQ)
+    , (("!=", TInt), icmp I.NE)
+    , (("<" , TInt), icmp I.SLT)
+    , (("<=", TInt), icmp I.SLE)
+    , ((">" , TInt), icmp I.SGT)
+    , ((">=", TInt), icmp I.SGE)
+    , (("==", TChar), icmp I.EQ)
+    , (("!=", TChar), icmp I.NE)
+    , (("<" , TChar), icmp I.SLT)
+    , (("<=", TChar), icmp I.SLE)
+    , ((">" , TChar), icmp I.SGT)
+    , ((">=", TChar), icmp I.SGE)
+    , (("==", TBool), icmp I.EQ)
+    , (("!=", TBool), icmp I.NE)
+    , (("<" , TBool), icmp I.SLT)
+    , (("<=", TBool), icmp I.SLE)
+    , ((">" , TBool), icmp I.SGT)
+    , ((">=", TBool), icmp I.SGE)
+    ]
 
 
 expr :: (MonadIRBuilder m) => ExprAnn Type -> m L.Operand
@@ -72,11 +113,8 @@ expr e =
         (if b
            then 1
            else 0)
-    EBin t "+" e1 e2 -> do
+    EBin t bop e1 e2 -> do
       x1 <- expr e1
       x2 <- expr e2
-      let op =
-            case t of
-              TInt -> add
-              TFloat -> fadd
+      let Just op = M.lookup (bop, t) bopTable
       op x1 x2

@@ -85,6 +85,8 @@ typedExpr f (EBin _ op e1 e2)
                                           t2 = getTag te2
                                       guard $ all (`elem` [TInt,TFloat]) $ [t1,t2]
                                       let t = if t1 == t2 then t1 else TFloat
+                                      te1 <- pure $ if (t1, t) == (TInt, TFloat) then EUn TFloat "i2f" te1 else te1
+                                      te2 <- pure $ if (t2, t) == (TInt, TFloat) then EUn TFloat "i2f" te2 else te2
                                       return $ EBin t op te1 te2
     | op `elem` ["==","!="] = do
                                       te1 <- typedExpr f e1
