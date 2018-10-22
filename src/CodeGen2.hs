@@ -102,6 +102,16 @@ bopTable = M.fromList
     , ((">=", TBool), icmp I.SGE)
     ]
 
+uopTable ::
+     (MonadIRBuilder m)
+  => M.Map (UnOp, Type) (L.Operand -> m L.Operand)
+uopTable = M.fromList
+    [ (("-", TInt), int32 0 >>= sub)
+    , (("-", TFloat), double 0 >>= fsub)
+    , (("!", TBool), bit 1 >>= xor)
+    , (("f2i", TFloat), flip fptosi (convertType TInt))
+    , (("i2f", TInt), flip sitofp (convertType TFloat))
+    ]
 
 expr :: (MonadIRBuilder m) => ExprAnn Type -> m L.Operand
 expr e =
@@ -118,3 +128,7 @@ expr e =
       x2 <- expr e2
       let Just op = M.lookup (bop, t) bopTable
       op x1 x2
+    EUn t uop e1 -> do
+      x1 <- expr e1
+      let Just op = M.lookup (uop, t) uopTable
+      op x1
