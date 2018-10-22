@@ -19,10 +19,10 @@ main = do
                 t2 <- varNames t1
                 koodi <- evalStmt t2
                 let allocs = C2.allocations t2
-		    start = "define i32 @main() {\n"
-		    end = "ret i32 0\n}\n"
+                    start = "define i32 @main() {\n"
+                    end = "ret i32 0\n}\n"
                 return (start ++ unlines (map (T.unpack . ppll) allocs) ++ koodi ++ end)) M.empty
         ((koodi,_),_) = runState koodiST []
     case checkTypes t1 of
-    	Right () -> putStr koodi
+        Right () -> putStr koodi
         Left str -> hPutStrLn stderr str

@@ -59,15 +59,15 @@ typedExpr :: (Monad m, Alternative m) => Frame Type -> Expr -> m (ExprAnn Type)
 typedExpr _ (ENum () x) = pure $ ENum TInt x
 typedExpr _ (EReal () x) = pure $ EReal TFloat x
 typedExpr _ (EBool () x) = pure $ EBool TBool x
-typedExpr f (EFetch _ x@(LVar v)) = case frameLookup f v of
-                                Just t -> return $ EFetch t x
+typedExpr f (EFetch () v) = case frameLookup f v of
+                                Just t -> return $ EFetch t v
                                 Nothing -> fail ("Symbol not found: " ++ v)
-typedExpr f (EFetch _ x@(LArr lval ind)) = do
-                                      te1 <- typedExpr f (EFetch () lval)
+typedExpr f (EArrayInd _ x ind) = do
+                                      te1 <- typedExpr f x
                                       te2 <- typedExpr f ind -- tarkistetaan, onko indeksi int
                                       TArr t _ <- pure $ getTag te1
                                       TInt <- pure $ getTag te2
-                                      return $ EFetch t x
+                                      return $ EArrayInd t x ind
 typedExpr f (EUn () "!" e1) = do
                             te1 <- typedExpr f e1
                             guard $ getTag te1 == TBool
@@ -109,7 +109,7 @@ typedExpr f (EBin _ op e1 e2)
 checkTypes :: ATree Type -> Either String ()
 checkTypes decorTree = let 
                    helper (s@(SAssign lvalue expr),f) = do
-                                                    t1 <- exprType f (EFetch () lvalue)
+                                                    t1 <- exprType f (lval2expr lvalue)
                                                     t2 <- exprType f expr
                                                     case (t1,t2) of
                                                        _ | t1 == t2 || all (`elem` [TInt,TFloat]) [t1,t2] -> return ()

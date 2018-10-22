@@ -41,7 +41,8 @@ data ExprAnn t
   = ENum t Integer
   | EReal t Double
   | EBool t Bool
-  | EFetch t LValue
+  | EFetch t Var
+  | EArrayInd t Expr Expr
   | EBin t BinOp
          (ExprAnn t)
          (ExprAnn t)
@@ -54,6 +55,7 @@ getTag (ENum t _) = t
 getTag (EReal t _) = t
 getTag (EBool t _) = t
 getTag (EFetch t _) = t
+getTag (EArrayInd t _ _) = t
 getTag (EBin t _ _ _) = t
 getTag (EUn t _ _) = t
 
@@ -82,7 +84,8 @@ instance Show Expr where
   show (ENum _ i) = show i
   show (EReal _ r) = show r
   show (EBool _ b) = show b
-  show (EFetch _ lv) = show lv
+  show (EFetch _ v) = show v
+  show (EArrayInd _ lv i) = show lv ++ "[" ++ show i ++ "]"
   show (EBin _ bop e1 e2) = "(" ++ show e1 ++ ")" ++ bop ++ "(" ++ show e2 ++ ")"
   show (EUn _ uop e1) = uop ++ show e1
 
@@ -102,3 +105,14 @@ extractLValue (LVar v) = (v, [])
 extractLValue (LArr lv e1) =
   let (v, inds) = extractLValue lv
   in (v, inds ++ [e1])
+
+lval2expr :: LValue -> Expr
+lval2expr (LVar v) = EFetch () v
+lval2expr (LArr lv e) = EArrayInd () (lval2expr lv) e
+
+expr2lval :: Expr -> Maybe LValue
+expr2lval (EFetch _ v) = pure (LVar v)
+expr2lval (EArrayInd _ x y) = do
+    lx <- expr2lval x
+    pure $ LArr lx y
+expr2lval _ = Nothing

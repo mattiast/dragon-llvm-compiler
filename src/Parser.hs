@@ -76,7 +76,10 @@ parseExpr    = buildExpressionParser table factor <?> "expression"
         <?> "number"
     real  = EReal () <$> float
         <?> "real number"
-    lvalue = EFetch () <$> parseLValue
+    lvalue = do
+        name <- EFetch () <$> identifier
+        indices <- many (brackets parseExpr)
+        return $ foldl (EArrayInd ()) name indices
         <?> "variable name"
 
 parseStmt :: Parser Stmt
