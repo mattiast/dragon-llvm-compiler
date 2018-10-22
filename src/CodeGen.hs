@@ -32,13 +32,13 @@ break_label = do
         return $ "end_while" ++ show i
 
 --annetaan jokaiselle muuttujalle yksikäsitteinen nimi
-varNames :: ATree Type -> NameState (ATree (Type,Var))
+varNames :: ATree TType -> NameState (ATree (TType,Var))
 varNames t = let
         helper (Node (s,f) ts) = do
                 f1 <- uniks f
                 ts1 <- sequence [helper tt | tt <- ts]
                 return $ Node (s,f1) ts1
-        uniks :: Frame Type -> NameState (Frame (Type,Var))
+        uniks :: Frame TType -> NameState (Frame (TType,Var))
         uniks (Frame table _)  = do
                 tbl <- T.mapM (\t -> do{v <- genvar "%var"; return (t,v)}) table
                 return $ Frame tbl Nothing
@@ -46,14 +46,14 @@ varNames t = let
                 tree <- helper t
                 return $ obeyParents tree
 
-renderType :: Type -> String
+renderType :: TType -> String
 renderType TInt = "i32"
 renderType TChar = "i8"
 renderType TBool = "i1"
 renderType TFloat = "float"
 renderType (TArr t1 n) = "[ " ++ show n ++ " x " ++ renderType t1 ++ " ]"
 
-evalPtr :: Frame (Type,Var) -> LValue -> NameState (Var, String)
+evalPtr :: Frame (TType,Var) -> LValue -> NameState (Var, String)
 evalPtr f lvalue = do
         let (var,inds) = extractLValue lvalue
             Just (typ,varName) = frameLookup f var
@@ -61,7 +61,7 @@ evalPtr f lvalue = do
         vptr <- genvar "%ptr"
         return (vptr, concat ss ++ newEvalPtr vptr typ varName vinds ++ "\n")
 
-binOpStr :: BinOp -> Type -> (Var,Var,Var) -> String
+binOpStr :: BinOp -> TType -> (Var,Var,Var) -> String
 -- aritmeettiset
 binOpStr op t        (r0,r1,r2)  = r0 ++ " = " ++ opStr ++ " " ++ renderType t ++ " " ++ r1 ++ ", " ++ r2 where
     opStr = case op of
@@ -90,14 +90,14 @@ binOpStr op t        (r0,r1,r2)  = r0 ++ " = " ++ opStr ++ " " ++ renderType t +
             ">"  -> "icmp sgt"
             ">=" -> "icmp sge"
 
-unOpStr :: UnOp -> Type -> (Var,Var) -> String
+unOpStr :: UnOp -> TType -> (Var,Var) -> String
 unOpStr "-" t@TInt (r0,r1)       = r0 ++ " = sub " ++ renderType t ++ " 0, " ++ r1
 unOpStr "-" t@TFloat (r0,r1)       = r0 ++ " = fsub " ++ renderType t ++ " 0, " ++ r1
 unOpStr "!" t@TBool (r0,r1) = r0 ++ " = xor " ++ renderType t ++ " true, " ++ r1
 unOpStr "f2i" t@TFloat (r0,r1) = r0 ++ " = fptosi " ++ renderType t ++ " " ++ r1 ++ " to " ++ renderType TInt
 unOpStr "i2f" t@TInt (r0,r1)   = r0 ++ " = sitofp " ++ renderType t ++ " " ++ r1 ++ " to " ++ renderType TFloat
 
-evalExpr :: Frame (Type,Var) -> Expr -> NameState (Var, String)
+evalExpr :: Frame (TType,Var) -> Expr -> NameState (Var, String)
 evalExpr f expr@(EFetch () _) = do
         let Just resultType = exprType (fmap fst f) expr
             Just lval = expr2lval expr
@@ -147,7 +147,7 @@ evalExpr f (EUn () op e1) = do
             operStr = unOpStr op t1 (v2,v1)
         return (v2, s1 ++ unlines [operStr])
 
-evalStmt :: ATree (Type,Var) -> NameState String
+evalStmt :: ATree (TType,Var) -> NameState String
 evalStmt (Node (SIf () b s1 s2, f) [t1,t2]) = do
         lbl_true <- genvar "if_true"
         lbl_false <- genvar "if_false"

@@ -1,6 +1,11 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 {- Grammar:
 P  ->  { DD SS }
 DD ->  e | DD D | D
@@ -14,6 +19,11 @@ E  ->  E + E | E - E | E * E | E / E | L | ( B ) | num
 L  ->  L [ B ] | id
 -}
 module AbstractSyntax where
+import GHC.Generics
+import Data.Bifunctor
+import Data.Bifoldable
+import Data.Bitraversable
+import Data.Bifunctor.TH
 
 type Var = String
 
@@ -21,18 +31,18 @@ data LValueAnn t
   = LVar Var
   | LArr (LValueAnn t)
          (ExprAnn t)
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
 
 type LValue = LValueAnn ()
 
-data Type
+data TType
   = TInt
   | TFloat
   | TChar
   | TBool
-  | TArr Type
+  | TArr TType
          Int
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic)
 
 type BinOp = String
 
@@ -51,7 +61,7 @@ data ExprAnn t
          (ExprAnn t)
   | EUn t UnOp
         (ExprAnn t)
-    deriving (Eq, Ord, Functor)
+    deriving (Eq, Ord, Functor, Foldable, Traversable, Generic)
 
 getTag :: ExprAnn t -> t
 getTag (ENum t _) = t
@@ -63,7 +73,7 @@ getTag (EBin t _ _ _) = t
 getTag (EUn t _ _) = t
 
 data Decl =
-  Decl Type
+  Decl TType
        Var
   deriving (Eq, Ord, Show)
 
@@ -80,7 +90,8 @@ data StmtA s e
   | SDoWhile s (ExprAnn e)
              (StmtA s e)
   | SBreak
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
 
 type Stmt = StmtA () ()
 
@@ -94,7 +105,7 @@ instance Show (ExprAnn t) where
   show (EBin _ bop e1 e2) = "(" ++ show e1 ++ ")" ++ bop ++ "(" ++ show e2 ++ ")"
   show (EUn _ uop e1) = uop ++ show e1
 
-instance Show Type where
+instance Show TType where
   show TInt = "int"
   show TFloat = "float"
   show TChar = "char"
@@ -121,3 +132,7 @@ expr2lval (EArrayInd _ x y) = do
     lx <- expr2lval x
     pure $ LArr lx (fmap (const ()) y)
 expr2lval _ = Nothing
+
+$(deriveBifunctor ''StmtA)
+$(deriveBifoldable ''StmtA)
+$(deriveBitraversable ''StmtA)

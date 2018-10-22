@@ -33,7 +33,7 @@ parseDeclaration = do
   return $ Decl t id
   <?> "declaration"
 
-parseType :: Parser Type
+parseType :: Parser TType
 parseType = do
   prim <- foldr1 (<|>) $ map (\s -> do{reserved s;return s}) ["int", "float", "char", "bool"]
   dims <- many (brackets integer)

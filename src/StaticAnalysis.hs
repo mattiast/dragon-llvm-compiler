@@ -14,7 +14,7 @@ instance Functor Frame where
     fmap f (Frame tbl par) = Frame (M.map f tbl) (fmap (fmap f) par)
 
 instance Foldable Frame where
-    foldMap h frame = foldMap h (symTable frame) <> (foldMap $ foldMap h) (parentFrame frame)
+    foldMap h (Frame table parent) = foldMap h table <> foldMap (foldMap h) parent
 
 instance Traversable Frame where
     traverse h (Frame table parent) = Frame <$> traverse h table <*> traverse (traverse h) parent
@@ -28,7 +28,7 @@ frameLookup f s = case M.lookup s (symTable f) of
                                 Just f' -> frameLookup f' s
                                 Nothing -> Nothing
 
-newftree :: Stmt -> StmtA (Frame Type) ()
+newftree :: Stmt -> StmtA (Frame TType) ()
 newftree stmt = go (Frame M.empty Nothing) stmt where
     go f s = case s of
         SBlock () dd ss -> let dict = M.fromList [ (v, t) | Decl t v <- dd ]
@@ -40,7 +40,7 @@ newftree stmt = go (Frame M.empty Nothing) stmt where
         SAssign () lv e -> SAssign f lv e
         SBreak -> SBreak
 
-findtypes :: (Monad m, Alternative m) => StmtA (Frame Type) () -> m (StmtA (Frame Type) Type)
+findtypes :: (Monad m, Alternative m) => StmtA (Frame TType) () -> m (StmtA (Frame TType) TType)
 findtypes = go where
     go stmt = case stmt of
         SBlock f dd ss -> (SBlock f dd) <$> (traverse go ss)
@@ -53,12 +53,12 @@ findtypes = go where
                     LVar v -> pure (LVar v)
                     LArr lv e -> LArr <$> (golv f lv) <*> (typedExpr f e)
 
-ftree :: Stmt -> ATree Type
+ftree :: Stmt -> ATree TType
 ftree s = let t1 = stree s
               t2 = fmap (id &&& symtab) t1
               t3 = fmap (id *** (\m -> Frame m Nothing)) t2
             in obeyParents t3 where
-            symtab :: Stmt -> M.Map String Type
+            symtab :: Stmt -> M.Map String TType
             symtab (SBlock () dd _) = M.fromList (map (\(Decl t v) -> (v,t)) dd)
             symtab _ = M.empty
 
@@ -80,13 +80,13 @@ paratree f (Node a ts) = let ts1 = map child ts
                            in Node a ts2 where
                            child (Node a1 tt) = Node (f a a1) tt
 
--- yleinen tyyppi, voi olla esim Maybe Type tai Either String Type
-exprType :: (Monad m, Alternative m) => Frame Type -> Expr -> m Type 
+-- yleinen tyyppi, voi olla esim Maybe TType tai Either String TType
+exprType :: (Monad m, Alternative m) => Frame TType -> Expr -> m TType 
 exprType f e = do
     te <- typedExpr f e
     return $ getTag te
 
-typedExpr :: (Monad m, Alternative m) => Frame Type -> Expr -> m (ExprAnn Type)
+typedExpr :: (Monad m, Alternative m) => Frame TType -> Expr -> m (ExprAnn TType)
 typedExpr _ (ENum () x) = pure $ ENum TInt x
 typedExpr _ (EReal () x) = pure $ EReal TFloat x
 typedExpr _ (EBool () x) = pure $ EBool TBool x
@@ -139,7 +139,7 @@ typedExpr f (EBin _ op e1 e2)
                                       return $ EBin TBool op te1 te2
 
 
-checkTypes :: ATree Type -> Either String ()
+checkTypes :: ATree TType -> Either String ()
 checkTypes decorTree = let 
                    helper (s@(SAssign () lvalue expr),f) = do
                                                     t1 <- exprType f (lval2expr lvalue)

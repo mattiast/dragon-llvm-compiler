@@ -23,7 +23,7 @@ import LLVM.AST.FloatingPointPredicate hiding (True, False)
 import qualified LLVM.AST.IntegerPredicate as I
 import Prelude hiding (and, or)
 
-convertType :: Type -> L.Type
+convertType :: TType -> L.Type
 convertType tp = case tp of
     TInt -> L.IntegerType 32
     TChar -> L.IntegerType 8
@@ -31,7 +31,7 @@ convertType tp = case tp of
     TFloat -> L.FloatingPointType L.FloatFP
     TArr t n -> L.ArrayType (fromIntegral n) (convertType t)
 
-allocations :: ATree (Type,Var) -> [L.Named L.Instruction]
+allocations :: ATree (TType,Var) -> [L.Named L.Instruction]
 allocations t = do
     (_, x) <- F.toList t
     (tp, var) <- F.toList $ symTable x
@@ -40,7 +40,7 @@ allocations t = do
 changeVar :: String -> L.Name
 changeVar ('%':var) = fromString var
 
-likePtr :: String -> Type -> String -> [String] -> L.Named L.Instruction
+likePtr :: String -> TType -> String -> [String] -> L.Named L.Instruction
 likePtr vptr typ var vinds =
   changeVar vptr L.:=
   L.GetElementPtr
@@ -55,18 +55,18 @@ i32 x = L.ConstantOperand (Int 32 x)
 ind :: L.Name -> L.Operand
 ind v = L.LocalReference (L.IntegerType 32) v
 
-newEvalPtr :: String -> Type -> String -> [String] -> String
+newEvalPtr :: String -> TType -> String -> [String] -> String
 newEvalPtr vptr typ var vinds = likePtr vptr typ var vinds & ppll & T.unpack
 
-likeLoad :: String -> Type -> String -> L.Named L.Instruction
+likeLoad :: String -> TType -> String -> L.Named L.Instruction
 likeLoad v1 typ vptr = (changeVar v1) L.:= L.Load False (L.LocalReference (ptr $ convertType typ) (changeVar vptr)) Nothing 4 []
 
-newLoad :: String -> Type -> String -> String
+newLoad :: String -> TType -> String -> String
 newLoad v1 typ vptr = likeLoad v1 typ vptr & ppll & T.unpack
 
 bopTable ::
      (MonadIRBuilder m)
-  => M.Map (BinOp, Type) (L.Operand -> L.Operand -> m L.Operand)
+  => M.Map (BinOp, TType) (L.Operand -> L.Operand -> m L.Operand)
 bopTable = M.fromList
     [ (("+", TInt), add)
     , (("+", TFloat), fadd)
@@ -106,7 +106,7 @@ bopTable = M.fromList
 
 uopTable ::
      (MonadIRBuilder m)
-  => M.Map (UnOp, Type) (L.Operand -> m L.Operand)
+  => M.Map (UnOp, TType) (L.Operand -> m L.Operand)
 uopTable = M.fromList
     [ (("-", TInt), int32 0 >>= sub)
     , (("-", TFloat), double 0 >>= fsub)
@@ -115,7 +115,7 @@ uopTable = M.fromList
     , (("i2f", TInt), flip sitofp (convertType TFloat))
     ]
 
-expr :: (MonadIRBuilder m) => Frame L.Operand -> ExprAnn Type -> m L.Operand
+expr :: (MonadIRBuilder m) => Frame L.Operand -> ExprAnn TType -> m L.Operand
 expr f e =
   case e of
     ENum TInt x -> int32 x
@@ -153,12 +153,12 @@ extractIndices e = (e, [])
 traverseATree :: Applicative f => (a -> f b) -> ATree a -> f (ATree b)
 traverseATree h = traverse . traverse . traverse $ h
 
-newallocations :: MonadIRBuilder m => ATree Type -> m (ATree (Type, L.Operand))
+newallocations :: MonadIRBuilder m => ATree TType -> m (ATree (TType, L.Operand))
 newallocations = traverseATree $ \tp -> do
     reg <- alloca (convertType tp) Nothing 4
     return (tp, reg)
 
-stmt :: (MonadIRBuilder m) => StmtA (Frame L.Operand) Type -> m ()
+stmt :: (MonadIRBuilder m) => StmtA (Frame L.Operand) TType -> m ()
 stmt (SIf f cond tstmt fstmt) = do
     lbl_true <- freshName "if_true"
     lbl_false <- freshName "if_false"
