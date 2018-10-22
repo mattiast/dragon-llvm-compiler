@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 module CodeGen2 where
 import StaticAnalysis
 import AbstractSyntax
@@ -15,7 +16,7 @@ import qualified LLVM.AST as L
 import LLVM.Pretty
 import LLVM.AST.Type(ptr)
 import LLVM.AST.Constant
-import LLVM.IRBuilder.Monad(MonadIRBuilder)
+import LLVM.IRBuilder.Monad(MonadIRBuilder, freshName, emitBlockStart)
 import LLVM.IRBuilder.Constant
 import LLVM.IRBuilder.Instruction
 import LLVM.AST.FloatingPointPredicate hiding (True, False)
@@ -145,7 +146,22 @@ expr e =
       return xv
 
 extractIndices :: ExprAnn t -> (ExprAnn t, [ExprAnn t])
-extractIndices (EArrayInd t x y) =
+extractIndices (EArrayInd _ x y) =
     let (f, r) = extractIndices x
     in (f, r ++ [y])
 extractIndices e = (e, [])
+
+stmt :: (MonadIRBuilder m, MonadReader (M.Map Var L.Operand) m) => Stmt -> m ()
+stmt (SIf cond tstmt fstmt) = do
+    lbl_true <- freshName "if_true"
+    lbl_false <- freshName "if_false"
+    lbl_end <- freshName "end_if"
+    test_reg <- expr $ undefined cond
+    condBr test_reg lbl_true lbl_false
+    emitBlockStart lbl_true
+    stmt tstmt
+    br lbl_end
+    emitBlockStart lbl_false
+    stmt fstmt
+    br lbl_end
+    emitBlockStart lbl_end
