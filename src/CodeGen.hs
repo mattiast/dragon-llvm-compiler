@@ -199,7 +199,7 @@ evalStmt (Node (SDoWhile () b s1, f) [t1]) = do
 evalStmt (Node (SBlock () dd ss, f) tt) = do
         codes <- sequence [ evalStmt t | t <- tt ]
         return $ concat codes
-evalStmt (Node (SAssign l e1, f) []) = do
+evalStmt (Node (SAssign () l e1, f) []) = do
         (val_reg, eval_e) <- evalExpr f e1
         (ptr_reg, eval_ptr) <- evalPtr f l
         let Just resultType = exprType (fmap fst f) e1

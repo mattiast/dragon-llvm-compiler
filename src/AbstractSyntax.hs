@@ -68,7 +68,7 @@ data Decl =
   deriving (Eq, Ord, Show)
 
 data StmtA s e
-  = SAssign LValue
+  = SAssign s (LValueAnn e)
             (ExprAnn e)
   | SBlock s [Decl]
            [StmtA s e]
@@ -101,11 +101,11 @@ instance Show Type where
   show TBool = "bool"
   show (TArr t i) = show t ++ "[" ++ show i ++ "]"
 
-instance Show LValue where
+instance Show (LValueAnn t) where
   show (LVar var) = var
   show (LArr l e) = show l ++ "[" ++ show e ++ "]"
 
-extractLValue :: LValue -> (Var, [Expr])
+extractLValue :: LValueAnn t -> (Var, [ExprAnn t])
 extractLValue (LVar v) = (v, [])
 extractLValue (LArr lv e1) =
   let (v, inds) = extractLValue lv

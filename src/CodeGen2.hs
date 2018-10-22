@@ -200,3 +200,13 @@ stmt (SDoWhile f b s1) = do
         test_reg <- expr f b
         condBr test_reg lbl_begin lbl_end
         emitBlockStart lbl_end
+stmt (SAssign f lval e) = do
+    xe <- expr f e
+    let Just reg_var = frameLookup f v
+        (v, inds) = extractLValue lval
+    xinds <- traverse (expr f) inds
+    zero <- int32 0
+    reg_ptr <- gep reg_var (zero : xinds)
+    store reg_ptr 4 xe
+stmt (SBlock _ _ ss) = F.traverse_ stmt ss
+stmt SBreak = return ()

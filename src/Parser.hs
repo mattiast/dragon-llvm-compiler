@@ -89,7 +89,7 @@ parseStmt = let
         reservedOp "="
         a <- parseExpr
         semi
-        return $ SAssign v a
+        return $ SAssign () v a
         <?> "assignment statement"
     while = do
         reserved "while"

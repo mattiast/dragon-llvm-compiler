@@ -116,7 +116,7 @@ typedExpr f (EBin _ op e1 e2)
 
 checkTypes :: ATree Type -> Either String ()
 checkTypes decorTree = let 
-                   helper (s@(SAssign lvalue expr),f) = do
+                   helper (s@(SAssign () lvalue expr),f) = do
                                                     t1 <- exprType f (lval2expr lvalue)
                                                     t2 <- exprType f expr
                                                     case (t1,t2) of
