@@ -115,8 +115,8 @@ uopTable = M.fromList
     , (("i2f", TInt), flip sitofp (convertType TFloat))
     ]
 
-expr :: (MonadIRBuilder m, MonadReader (M.Map Var L.Operand) m) => ExprAnn Type -> m L.Operand
-expr e =
+expr :: (MonadIRBuilder m) => Frame L.Operand -> ExprAnn Type -> m L.Operand
+expr f e =
   case e of
     ENum TInt x -> int32 x
     EReal TFloat x -> double x
@@ -126,23 +126,22 @@ expr e =
            then 1
            else 0)
     EBin t bop e1 e2 -> do
-      x1 <- expr e1
-      x2 <- expr e2
+      x1 <- expr f e1
+      x2 <- expr f e2
       let Just op = M.lookup (bop, t) bopTable
       op x1 x2
     EUn t uop e1 -> do
-      x1 <- expr e1
+      x1 <- expr f e1
       let Just op = M.lookup (uop, t) uopTable
       op x1
     (EArrayInd _ _ _) -> do
       let (v, inds) = extractIndices e
-      xv <- expr v
-      xinds <- T.traverse expr inds
+      xv <- expr f v
+      xinds <- T.traverse (expr f) inds
       zero <- int32 0
       gep xv (zero:xinds)
     (EFetch _ v) -> do
-      table <- ask
-      let Just xv = M.lookup v table
+      let Just xv = frameLookup f v
       return xv
 
 extractIndices :: ExprAnn t -> (ExprAnn t, [ExprAnn t])
@@ -159,12 +158,12 @@ newallocations = traverseATree $ \tp -> do
     reg <- alloca (convertType tp) Nothing 4
     return (tp, reg)
 
-stmt :: (MonadIRBuilder m, MonadReader (M.Map Var L.Operand) m) => StmtA Type -> m ()
+stmt :: (MonadIRBuilder m) => StmtA Type -> m ()
 stmt (SIf cond tstmt fstmt) = do
     lbl_true <- freshName "if_true"
     lbl_false <- freshName "if_false"
     lbl_end <- freshName "end_if"
-    test_reg <- expr cond
+    test_reg <- expr undefined cond
     condBr test_reg lbl_true lbl_false
     emitBlockStart lbl_true
     stmt tstmt
