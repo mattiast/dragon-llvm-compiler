@@ -49,6 +49,9 @@ data ExprAnn t
         (ExprAnn t)
     deriving (Eq, Ord)
 
+getTag :: ExprAnn t -> t
+getTag (ENum t _) = t
+
 data Decl =
   Decl Type
        Var

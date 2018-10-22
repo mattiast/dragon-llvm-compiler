@@ -89,6 +89,20 @@ exprType f (EUn _ "-" e1) = do
                             True <- return (t `elem` [TInt,TFloat])
                             return t
 
+typedExpr :: (Monad m, Alternative m) => Frame Type -> Expr -> m (ExprAnn Type)
+typedExpr _ (ENum () x) = pure $ ENum TInt x
+typedExpr _ (EReal () x) = pure $ EReal TFloat x
+typedExpr _ (EBool () x) = pure $ EBool TBool x
+typedExpr f (EUn () "!" e1) = do
+                            te1 <- typedExpr f e1
+                            guard $ getTag te1 == TBool
+                            return $ EUn TBool "!" te1
+typedExpr f (EUn () "-" e1) = do
+                            te1 <- typedExpr f e1
+                            let t = getTag te1
+                            guard $ t `elem` [TInt, TBool]
+                            return $ EUn t "-" te1
+
 
 checkTypes :: ATree Type -> Either String ()
 checkTypes decorTree = let 
