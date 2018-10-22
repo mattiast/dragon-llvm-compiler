@@ -58,9 +58,9 @@ parseExpr    = buildExpressionParser table factor <?> "expression"
           ]
         where
           bop s assoc
-             = Infix (do{ reservedOp s; return (EBin s)}) assoc
+             = Infix (do{ reservedOp s; return (EBin () s)}) assoc
           uop s
-             = Prefix (do{ reservedOp s; return (EUn s)})
+             = Prefix (do{ reservedOp s; return (EUn () s)})
 
     factor  = try (parens parseExpr)
         <|> try real
@@ -70,13 +70,13 @@ parseExpr    = buildExpressionParser table factor <?> "expression"
         <|> try lvalue 
         <?> "simple expression"
 
-    truelit = reserved "true" *> pure (EBool True)
-    falselit = reserved "false" *> pure (EBool False)
-    number  = ENum <$> integer
+    truelit = reserved "true" *> pure (EBool () True)
+    falselit = reserved "false" *> pure (EBool () False)
+    number  = ENum () <$> integer
         <?> "number"
-    real  = EReal <$> float
+    real  = EReal () <$> float
         <?> "real number"
-    lvalue = EFetch <$> parseLValue
+    lvalue = EFetch () <$> parseLValue
         <?> "variable name"
 
 parseStmt :: Parser Stmt

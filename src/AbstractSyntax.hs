@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 {- Grammar:
 P  ->  { DD SS }
 DD ->  e | DD D | D
@@ -33,17 +35,19 @@ type BinOp = String
 
 type UnOp = String
 
-data Expr
-  = ENum Integer
-  | EReal Double
-  | EBool Bool
-  | EFetch LValue
-  | EBin BinOp
-         Expr
-         Expr
-  | EUn UnOp
-        Expr
-  deriving (Eq, Ord)
+type Expr = ExprAnn ()
+
+data ExprAnn t
+  = ENum t Integer
+  | EReal t Double
+  | EBool t Bool
+  | EFetch t LValue
+  | EBin t BinOp
+         (ExprAnn t)
+         (ExprAnn t)
+  | EUn t UnOp
+        (ExprAnn t)
+    deriving (Eq, Ord)
 
 data Decl =
   Decl Type
@@ -67,12 +71,12 @@ data Stmt
 
 -- TODO pretty printing
 instance Show Expr where
-  show (ENum i) = show i
-  show (EReal r) = show r
-  show (EBool b) = show b
-  show (EFetch lv) = show lv
-  show (EBin bop e1 e2) = "(" ++ show e1 ++ ")" ++ bop ++ "(" ++ show e2 ++ ")"
-  show (EUn uop e1) = uop ++ show e1
+  show (ENum _ i) = show i
+  show (EReal _ r) = show r
+  show (EBool _ b) = show b
+  show (EFetch _ lv) = show lv
+  show (EBin _ bop e1 e2) = "(" ++ show e1 ++ ")" ++ bop ++ "(" ++ show e2 ++ ")"
+  show (EUn _ uop e1) = uop ++ show e1
 
 instance Show Type where
   show TInt = "int"

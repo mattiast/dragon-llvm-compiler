@@ -51,17 +51,17 @@ paratree f (Node a ts) = let ts1 = map child ts
 
 -- yleinen tyyppi, voi olla esim Maybe Type tai Either String Type
 exprType :: (Monad m, Alternative m) => Frame Type -> Expr -> m Type 
-exprType _ (ENum _) = return TInt
-exprType _ (EReal _) = return TFloat
-exprType _ (EBool _) = return TBool
-exprType f (EFetch (LVar v)) = case frameLookup f v of
+exprType _ (ENum _ _) = return TInt
+exprType _ (EReal _ _) = return TFloat
+exprType _ (EBool _ _) = return TBool
+exprType f (EFetch _ (LVar v)) = case frameLookup f v of
                                 Just t -> return t
                                 Nothing -> fail ("Symbol not found: " ++ v)
-exprType f (EFetch (LArr lval ind)) = do
-                                      (TArr t _) <- exprType f (EFetch lval)
+exprType f (EFetch _ (LArr lval ind)) = do
+                                      (TArr t _) <- exprType f (EFetch () lval)
                                       TInt <- exprType f ind -- tarkistetaan, onko indeksi int
                                       return t
-exprType f (EBin op e1 e2) 
+exprType f (EBin _ op e1 e2) 
     | op `elem` ["+","-","*","/"] = do -- tässä voi olla int ja float, mutta vertailussa pitää olla sama tyyppi
                                       t1 <- exprType f e1
                                       t2 <- exprType f e2
@@ -81,10 +81,10 @@ exprType f (EBin op e1 e2)
                                       TBool <- exprType f e1
                                       TBool <- exprType f e2
                                       return TBool
-exprType f (EUn "!" e1) = do
+exprType f (EUn _ "!" e1) = do
                             TBool <- exprType f e1
                             return TBool
-exprType f (EUn "-" e1) = do
+exprType f (EUn _ "-" e1) = do
                             t <- exprType f e1
                             True <- return (t `elem` [TInt,TFloat])
                             return t
@@ -93,7 +93,7 @@ exprType f (EUn "-" e1) = do
 checkTypes :: ATree Type -> Either String ()
 checkTypes decorTree = let 
                    helper (s@(SAssign lvalue expr),f) = do
-                                                    t1 <- exprType f (EFetch lvalue)
+                                                    t1 <- exprType f (EFetch () lvalue)
                                                     t2 <- exprType f expr
                                                     case (t1,t2) of
                                                        _ | t1 == t2 || all (`elem` [TInt,TFloat]) [t1,t2] -> return ()

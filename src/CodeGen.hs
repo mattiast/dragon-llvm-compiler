@@ -98,22 +98,22 @@ unOpStr "f2i" t@TFloat (r0,r1) = r0 ++ " = fptosi " ++ renderType t ++ " " ++ r1
 unOpStr "i2f" t@TInt (r0,r1)   = r0 ++ " = sitofp " ++ renderType t ++ " " ++ r1 ++ " to " ++ renderType TFloat
 
 evalExpr :: Frame (Type,Var) -> Expr -> NameState (Var, String)
-evalExpr f expr@(EFetch lv) = do
+evalExpr f expr@(EFetch () lv) = do
         let Just resultType = exprType (fmap fst f) expr
         (ptr_reg, eval_ptr) <- evalPtr f lv
         v1 <- genvar "%reg"
         return (v1, eval_ptr ++ unlines [ newLoad v1 resultType ptr_reg])
-evalExpr f (ENum n) = do
+evalExpr f (ENum () n) = do
         v1 <- genvar "%reg"
         return (v1, unlines [v1 ++ " = add i32 " ++ show n ++ ", 0"])
-evalExpr f (EReal n) = do
+evalExpr f (EReal () n) = do
         v1 <- genvar "%reg"
         return (v1, unlines [v1 ++ " = fadd float " ++ show n ++ ", 0.0"])
-evalExpr f (EBool b) = do
+evalExpr f (EBool () b) = do
         v1 <- genvar "%reg"
         let val = if b then "true" else "false"
         return (v1, unlines [v1 ++ " = add i1 " ++ val ++ ", 0"])
-evalExpr f (EBin op e1 e2) = do
+evalExpr f (EBin () op e1 e2) = do
         (v1,s1) <- evalExpr f e1
         (v2,s2) <- evalExpr f e2
         v3 <- genvar "%reg"
@@ -133,7 +133,7 @@ evalExpr f (EBin op e1 e2) = do
                           (TFloat,TInt) -> unOpStr "i2f" TInt (c2,v2) ++ "\n"
         return (v3, s1 ++ s2 ++ eval_cast ++
                       unlines [binOpStr op (if t1 == t2 then t1 else TFloat) (v3,c1,c2)])
-evalExpr f (EUn op e1) = do
+evalExpr f (EUn () op e1) = do
         (v1,s1) <- evalExpr f e1
         v2 <- genvar "%reg"
         let Just t1 = exprType (fmap fst f) e1
@@ -196,7 +196,7 @@ evalStmt (Node (SAssign l e1, f) []) = do
         (val_reg, eval_e) <- evalExpr f e1
         (ptr_reg, eval_ptr) <- evalPtr f l
         let Just resultType = exprType (fmap fst f) e1
-            Just lvalueType = exprType (fmap fst f) (EFetch l)
+            Just lvalueType = exprType (fmap fst f) (EFetch () l)
         casted_reg <- if resultType == lvalueType then return val_reg else genvar "%reg"
         let eval_cast = case (lvalueType,resultType) of
                 (tl,tr) | tl == tr -> ""

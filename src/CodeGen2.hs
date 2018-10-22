@@ -14,6 +14,9 @@ import qualified LLVM.AST as L
 import LLVM.Pretty
 import LLVM.AST.Type(ptr)
 import LLVM.AST.Constant
+import LLVM.IRBuilder.Monad(MonadIRBuilder)
+import LLVM.IRBuilder.Constant
+import LLVM.IRBuilder.Instruction
 
 convertType :: Type -> L.Type
 convertType tp = case tp of
@@ -55,3 +58,25 @@ likeLoad v1 typ vptr = (changeVar v1) L.:= L.Load False (L.LocalReference (ptr $
 
 newLoad :: String -> Type -> String -> String
 newLoad v1 typ vptr = likeLoad v1 typ vptr & ppll & T.unpack
+
+
+
+
+expr :: (MonadIRBuilder m) => ExprAnn Type -> m L.Operand
+expr e =
+  case e of
+    ENum TInt x -> int32 x
+    EReal TFloat x -> double x
+    EBool TBool b ->
+      bit
+        (if b
+           then 1
+           else 0)
+    EBin t "+" e1 e2 -> do
+      x1 <- expr e1
+      x2 <- expr e2
+      let op =
+            case t of
+              TInt -> add
+              TFloat -> fadd
+      op x1 x2
