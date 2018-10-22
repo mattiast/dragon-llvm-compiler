@@ -51,6 +51,11 @@ data ExprAnn t
 
 getTag :: ExprAnn t -> t
 getTag (ENum t _) = t
+getTag (EReal t _) = t
+getTag (EBool t _) = t
+getTag (EFetch t _) = t
+getTag (EBin t _ _ _) = t
+getTag (EUn t _ _) = t
 
 data Decl =
   Decl Type

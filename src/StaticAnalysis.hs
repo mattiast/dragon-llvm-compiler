@@ -51,48 +51,23 @@ paratree f (Node a ts) = let ts1 = map child ts
 
 -- yleinen tyyppi, voi olla esim Maybe Type tai Either String Type
 exprType :: (Monad m, Alternative m) => Frame Type -> Expr -> m Type 
-exprType _ (ENum _ _) = return TInt
-exprType _ (EReal _ _) = return TFloat
-exprType _ (EBool _ _) = return TBool
-exprType f (EFetch _ (LVar v)) = case frameLookup f v of
-                                Just t -> return t
-                                Nothing -> fail ("Symbol not found: " ++ v)
-exprType f (EFetch _ (LArr lval ind)) = do
-                                      (TArr t _) <- exprType f (EFetch () lval)
-                                      TInt <- exprType f ind -- tarkistetaan, onko indeksi int
-                                      return t
-exprType f (EBin _ op e1 e2) 
-    | op `elem` ["+","-","*","/"] = do -- tässä voi olla int ja float, mutta vertailussa pitää olla sama tyyppi
-                                      t1 <- exprType f e1
-                                      t2 <- exprType f e2
-                                      guard $ all (`elem` [TInt,TFloat]) [t1,t2]
-                                      return (if t1 == t2 then t1 else TFloat)
-    | op `elem` ["==","!="] = do
-                                      t1 <- exprType f e1
-                                      t2 <- exprType f e2
-                                      guard (t1 == t2 && t1 `elem` [TInt,TFloat,TBool,TChar])
-                                      return TBool
-    | op `elem` ["<",">","<=",">="] = do
-                                      t1 <- exprType f e1
-                                      t2 <- exprType f e2
-                                      guard (t1 == t2 && t1 `elem` [TInt,TFloat])
-                                      return TBool
-    | op `elem` ["||","&&"] = do
-                                      TBool <- exprType f e1
-                                      TBool <- exprType f e2
-                                      return TBool
-exprType f (EUn _ "!" e1) = do
-                            TBool <- exprType f e1
-                            return TBool
-exprType f (EUn _ "-" e1) = do
-                            t <- exprType f e1
-                            True <- return (t `elem` [TInt,TFloat])
-                            return t
+exprType f e = do
+    te <- typedExpr f e
+    return $ getTag te
 
 typedExpr :: (Monad m, Alternative m) => Frame Type -> Expr -> m (ExprAnn Type)
 typedExpr _ (ENum () x) = pure $ ENum TInt x
 typedExpr _ (EReal () x) = pure $ EReal TFloat x
 typedExpr _ (EBool () x) = pure $ EBool TBool x
+typedExpr f (EFetch _ x@(LVar v)) = case frameLookup f v of
+                                Just t -> return $ EFetch t x
+                                Nothing -> fail ("Symbol not found: " ++ v)
+typedExpr f (EFetch _ x@(LArr lval ind)) = do
+                                      te1 <- typedExpr f (EFetch () lval)
+                                      te2 <- typedExpr f ind -- tarkistetaan, onko indeksi int
+                                      TArr t _ <- pure $ getTag te1
+                                      TInt <- pure $ getTag te2
+                                      return $ EFetch t x
 typedExpr f (EUn () "!" e1) = do
                             te1 <- typedExpr f e1
                             guard $ getTag te1 == TBool
@@ -102,6 +77,33 @@ typedExpr f (EUn () "-" e1) = do
                             let t = getTag te1
                             guard $ t `elem` [TInt, TBool]
                             return $ EUn t "-" te1
+typedExpr f (EBin _ op e1 e2) 
+    | op `elem` ["+","-","*","/"] = do -- tässä voi olla int ja float, mutta vertailussa pitää olla sama tyyppi
+                                      te1 <- typedExpr f e1
+                                      te2 <- typedExpr f e2
+                                      let t1 = getTag te1
+                                          t2 = getTag te2
+                                      guard $ all (`elem` [TInt,TFloat]) $ [t1,t2]
+                                      let t = if t1 == t2 then t1 else TFloat
+                                      return $ EBin t op te1 te2
+    | op `elem` ["==","!="] = do
+                                      te1 <- typedExpr f e1
+                                      te2 <- typedExpr f e2
+                                      guard (getTag te1 == getTag te2 && getTag te1 `elem` [TInt,TFloat,TBool,TChar])
+                                      return $ EBin TBool op te1 te2
+    | op `elem` ["<",">","<=",">="] = do
+                                      te1 <- typedExpr f e1
+                                      te2 <- typedExpr f e2
+                                      let t1 = getTag te1
+                                          t2 = getTag te2
+                                      guard (t1 == t2 && t1 `elem` [TInt,TFloat])
+                                      return $ EBin TBool op te1 te2
+    | op `elem` ["||","&&"] = do
+                                      te1 <- typedExpr f e1
+                                      te2 <- typedExpr f e2
+                                      guard $ getTag te1 == TBool
+                                      guard $ getTag te2 == TBool
+                                      return $ EBin TBool op te1 te2
 
 
 checkTypes :: ATree Type -> Either String ()
