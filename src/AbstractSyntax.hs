@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveFunctor #-}
 {- Grammar:
 P  ->  { DD SS }
 DD ->  e | DD D | D
@@ -42,13 +43,13 @@ data ExprAnn t
   | EReal t Double
   | EBool t Bool
   | EFetch t Var
-  | EArrayInd t Expr Expr
+  | EArrayInd t (ExprAnn t) (ExprAnn t)
   | EBin t BinOp
          (ExprAnn t)
          (ExprAnn t)
   | EUn t UnOp
         (ExprAnn t)
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Functor)
 
 getTag :: ExprAnn t -> t
 getTag (ENum t _) = t
@@ -110,9 +111,9 @@ lval2expr :: LValue -> Expr
 lval2expr (LVar v) = EFetch () v
 lval2expr (LArr lv e) = EArrayInd () (lval2expr lv) e
 
-expr2lval :: Expr -> Maybe LValue
+expr2lval :: ExprAnn t -> Maybe LValue
 expr2lval (EFetch _ v) = pure (LVar v)
 expr2lval (EArrayInd _ x y) = do
     lx <- expr2lval x
-    pure $ LArr lx y
+    pure $ LArr lx (fmap (const ()) y)
 expr2lval _ = Nothing

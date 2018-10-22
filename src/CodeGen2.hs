@@ -1,8 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
 module CodeGen2 where
 import StaticAnalysis
 import AbstractSyntax
 import Control.Monad.State
-import Data.Tree
+import Control.Monad.Reader
 import Data.Function((&))
 import qualified Data.Text.Lazy as T
 import Data.String(fromString)
@@ -113,7 +114,7 @@ uopTable = M.fromList
     , (("i2f", TInt), flip sitofp (convertType TFloat))
     ]
 
-expr :: (MonadIRBuilder m) => ExprAnn Type -> m L.Operand
+expr :: (MonadIRBuilder m, MonadReader (M.Map Var L.Operand) m) => ExprAnn Type -> m L.Operand
 expr e =
   case e of
     ENum TInt x -> int32 x
@@ -132,3 +133,19 @@ expr e =
       x1 <- expr e1
       let Just op = M.lookup (uop, t) uopTable
       op x1
+    (EArrayInd _ _ _) -> do
+      let (v, inds) = extractIndices e
+      xv <- expr v
+      xinds <- T.traverse expr inds
+      zero <- int32 0
+      gep xv (zero:xinds)
+    (EFetch _ v) -> do
+      table <- ask
+      let Just xv = M.lookup v table
+      return xv
+
+extractIndices :: ExprAnn t -> (ExprAnn t, [ExprAnn t])
+extractIndices (EArrayInd t x y) =
+    let (f, r) = extractIndices x
+    in (f, r ++ [y])
+extractIndices e = (e, [])

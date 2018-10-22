@@ -67,7 +67,7 @@ typedExpr f (EArrayInd _ x ind) = do
                                       te2 <- typedExpr f ind -- tarkistetaan, onko indeksi int
                                       TArr t _ <- pure $ getTag te1
                                       TInt <- pure $ getTag te2
-                                      return $ EArrayInd t x ind
+                                      return $ EArrayInd t te1 te2
 typedExpr f (EUn () "!" e1) = do
                             te1 <- typedExpr f e1
                             guard $ getTag te1 == TBool
