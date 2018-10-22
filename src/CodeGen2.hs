@@ -151,12 +151,12 @@ extractIndices (EArrayInd _ x y) =
     in (f, r ++ [y])
 extractIndices e = (e, [])
 
-stmt :: (MonadIRBuilder m, MonadReader (M.Map Var L.Operand) m) => Stmt -> m ()
+stmt :: (MonadIRBuilder m, MonadReader (M.Map Var L.Operand) m) => StmtA Type -> m ()
 stmt (SIf cond tstmt fstmt) = do
     lbl_true <- freshName "if_true"
     lbl_false <- freshName "if_false"
     lbl_end <- freshName "end_if"
-    test_reg <- expr $ undefined cond
+    test_reg <- expr cond
     condBr test_reg lbl_true lbl_false
     emitBlockStart lbl_true
     stmt tstmt
