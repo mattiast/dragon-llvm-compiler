@@ -40,7 +40,7 @@ findtypes = go where
         SIf f b s1 s2 -> (SIf f) <$> (typedExpr f b) <*> (go s1) <*> (go s2)
         SDoWhile f b s1 -> (SDoWhile f) <$> (typedExpr f b) <*> (go s1)
         SWhile f b s1 -> (SWhile f) <$> (typedExpr f b) <*> (go s1)
-        SAssign f lv e -> (SAssign f) <$> (golv f lv) <*> (typedExpr f e)
+        SAssign f lv e -> (SAssign f) <$> (golv f lv) <*> (typedExpr f e) -- i2f and f2i ??
         SBreak -> pure SBreak
     golv f lvalue = case lvalue of
                     LVar v -> pure (LVar v)

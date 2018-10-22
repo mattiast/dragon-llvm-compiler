@@ -27,7 +27,7 @@ convertType tp = case tp of
     TInt -> L.IntegerType 32
     TChar -> L.IntegerType 8
     TBool -> L.IntegerType 1
-    TFloat -> L.FloatingPointType L.FloatFP
+    TFloat -> L.FloatingPointType L.DoubleFP
     TArr t n -> L.ArrayType (fromIntegral n) (convertType t)
 
 allocations :: ATree (TType,Var) -> [L.Named L.Instruction]
@@ -131,7 +131,7 @@ expr f e =
       op x1 x2
     EUn t uop e1 -> do
       x1 <- expr f e1
-      let Just op = M.lookup (uop, t) uopTable
+      let Just op = M.lookup (uop, getTag e1) uopTable
       op x1
     (EArrayInd _ _ _) -> do
       let (v, inds) = extractIndices e
@@ -141,7 +141,7 @@ expr f e =
       gep xv (zero:xinds)
     (EFetch _ v) -> do
       let Just xv = frameLookup f v
-      return xv
+      load xv 4
 
 extractIndices :: ExprAnn t -> (ExprAnn t, [ExprAnn t])
 extractIndices (EArrayInd _ x y) =

@@ -7,22 +7,26 @@ import System.IO
 import qualified Data.Map as M
 import Control.Monad.State
 import LLVM.Pretty
+import LLVM.IRBuilder.Monad
+import LLVM.IRBuilder.Constant
+import LLVM.IRBuilder.Instruction
 import qualified Data.Text.Lazy as T
+import qualified Data.Text.Lazy.IO as T
+import Data.Foldable
 
 main :: IO ()
 main = do
     args <- getArgs
     str <- readFile (args!!0)
     let s = wParse str
-        t1 = ftree s
-        koodiST = runStateT (do 
-                t2 <- varNames t1
-                koodi <- evalStmt t2
-                let allocs = C2.allocations t2
-                    start = "define i32 @main() {\n"
-                    end = "ret i32 0\n}\n"
-                return (start ++ unlines (map (T.unpack . ppll) allocs) ++ koodi ++ end)) M.empty
-        ((koodi,_),_) = runState koodiST []
-    case checkTypes t1 of
-        Right () -> putStr koodi
-        Left str -> hPutStrLn stderr str
+        t1 = newftree s
+        Just t2 = findtypes t1
+        ((), koodi) = runIRBuilder emptyIRBuilder $ do 
+                ensureBlock
+                t3 <- C2.newnewvars t2
+                C2.stmt t3
+                zero <- int32 0
+                ret zero
+    putStrLn "define i32 @main() {\n"
+    traverse_ (T.putStrLn . ppll) koodi
+    putStrLn "}\n"
