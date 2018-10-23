@@ -3,8 +3,6 @@ module StaticAnalysis where
 import AbstractSyntax
 import Data.Tree
 import qualified Data.Map as M
-import qualified Data.Foldable as F
-import Control.Arrow
 import Control.Applicative
 -- this is only used to get orphan instance for Alternative (Either String) blehhhh
 import Control.Monad.Error
@@ -58,7 +56,7 @@ findtypes = go where
                         TArr t _ <- getLTag <$> golv f lv
                         LArr t <$> (golv f lv) <*> (typedExpr f e)
 
-glue :: (Monad m, Alternative m) => Maybe a -> m a
+glue :: (Alternative m) => Maybe a -> m a
 glue (Just x) = pure x
 glue Nothing = empty
 

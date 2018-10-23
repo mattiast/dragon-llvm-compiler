@@ -2,14 +2,11 @@ import Parser
 import StaticAnalysis
 import qualified CodeGen2 as C2
 import System.Environment
-import System.IO
-import qualified Data.Map as M
 import Control.Monad.State
 import LLVM.Pretty
 import LLVM.IRBuilder.Monad
 import LLVM.IRBuilder.Constant
 import LLVM.IRBuilder.Instruction
-import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import Data.Foldable
 

@@ -3,7 +3,6 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 {- Grammar:
 P  ->  { DD SS }
