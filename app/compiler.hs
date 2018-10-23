@@ -21,7 +21,7 @@ main = do
     let s = wParse str
         t1 = newftree s
         Just t2 = findtypes t1
-        ((), koodi) = runIRBuilder emptyIRBuilder $ do 
+        (((), _), koodi) = runIRBuilder emptyIRBuilder $ flip runStateT [] $ do
                 ensureBlock
                 t3 <- C2.newnewvars t2
                 C2.stmt t3

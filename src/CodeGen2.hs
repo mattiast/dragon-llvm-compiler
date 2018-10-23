@@ -162,7 +162,13 @@ newnewvars = go (Frame []) where
         SAssign _ lv e -> pure (SAssign f lv e)
         SBreak -> pure SBreak
 
-stmt :: (MonadIRBuilder m) => StmtA (Frame L.Operand) TType -> m ()
+push_label :: (MonadState [a] m) => a -> m ()
+push_label name = modify (name:)
+
+pop_label :: (MonadState [a] m) => m ()
+pop_label = modify tail
+
+stmt :: (MonadIRBuilder m, MonadState [L.Name] m) => StmtA (Frame L.Operand) TType -> m ()
 stmt (SIf f cond tstmt fstmt) = do
     lbl_true <- freshName "if_true"
     lbl_false <- freshName "if_false"
@@ -182,9 +188,9 @@ stmt (SWhile f b s1) = do
         lbl_end <- freshName "end_while"
         br lbl_test
         emitBlockStart lbl_begin
-        -- push_while
+        push_label lbl_end
         stmt s1
-        -- pop_while
+        pop_label
         br lbl_test
         emitBlockStart lbl_test
         test_reg <- expr f b
@@ -196,9 +202,9 @@ stmt (SDoWhile f b s1) = do
         lbl_end <- freshName "end_while"
         br lbl_begin
         emitBlockStart lbl_begin
-        -- push_while
+        push_label lbl_end
         stmt s1
-        -- pop_while
+        pop_label
         br lbl_test
         emitBlockStart lbl_test
         test_reg <- expr f b
@@ -213,4 +219,8 @@ stmt (SAssign f lval e) = do
     reg_ptr <- gep reg_var (zero : xinds)
     store reg_ptr 4 xe
 stmt (SBlock _ _ ss) = F.traverse_ stmt ss
-stmt SBreak = return ()
+stmt SBreak = do
+    break_label <- head <$> get
+    br break_label
+    lbl_dead <- freshName "dead"
+    emitBlockStart lbl_dead
