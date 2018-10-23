@@ -127,18 +127,20 @@ expr f e =
     EBin t bop e1 e2 -> do
       x1 <- expr f e1
       x2 <- expr f e2
-      let Just op = M.lookup (bop, t) bopTable
+      True <- pure $ getTag e1 == getTag e2
+      let Just op = M.lookup (bop, getTag e1) bopTable
       op x1 x2
     EUn t uop e1 -> do
       x1 <- expr f e1
       let Just op = M.lookup (uop, getTag e1) uopTable
       op x1
     (EArrayInd _ _ _) -> do
-      let (v, inds) = extractIndices e
-      xv <- expr f v
+      let (EFetch _ v, inds) = extractIndices e
+      let Just xv = frameLookup f v
       xinds <- T.traverse (expr f) inds
       zero <- int32 0
-      gep xv (zero:xinds)
+      reg_ptr <- gep xv (zero:xinds)
+      load reg_ptr 4
     (EFetch _ v) -> do
       let Just xv = frameLookup f v
       load xv 4

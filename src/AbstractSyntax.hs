@@ -26,10 +26,14 @@ import Data.Bifunctor.TH
 type Var = String
 
 data LValueAnn t
-  = LVar Var
-  | LArr (LValueAnn t)
+  = LVar t Var
+  | LArr t (LValueAnn t)
          (ExprAnn t)
   deriving (Eq, Ord, Functor, Foldable, Traversable)
+
+getLTag :: LValueAnn t -> t
+getLTag (LVar t _) = t
+getLTag (LArr t _ _) = t
 
 type LValue = LValueAnn ()
 
@@ -111,24 +115,24 @@ instance Show TType where
   show (TArr t i) = show t ++ "[" ++ show i ++ "]"
 
 instance Show (LValueAnn t) where
-  show (LVar var) = var
-  show (LArr l e) = show l ++ "[" ++ show e ++ "]"
+  show (LVar _ var) = var
+  show (LArr _ l e) = show l ++ "[" ++ show e ++ "]"
 
 extractLValue :: LValueAnn t -> (Var, [ExprAnn t])
-extractLValue (LVar v) = (v, [])
-extractLValue (LArr lv e1) =
+extractLValue (LVar _ v) = (v, [])
+extractLValue (LArr _ lv e1) =
   let (v, inds) = extractLValue lv
   in (v, inds ++ [e1])
 
 lval2expr :: LValue -> Expr
-lval2expr (LVar v) = EFetch () v
-lval2expr (LArr lv e) = EArrayInd () (lval2expr lv) e
+lval2expr (LVar () v) = EFetch () v
+lval2expr (LArr () lv e) = EArrayInd () (lval2expr lv) e
 
 expr2lval :: ExprAnn t -> Maybe LValue
-expr2lval (EFetch _ v) = pure (LVar v)
+expr2lval (EFetch _ v) = pure (LVar () v)
 expr2lval (EArrayInd _ x y) = do
     lx <- expr2lval x
-    pure $ LArr lx (fmap (const ()) y)
+    pure $ LArr () lx (fmap (const ()) y)
 expr2lval _ = Nothing
 
 $(deriveBifunctor ''StmtA)

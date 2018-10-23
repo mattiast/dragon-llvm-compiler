@@ -22,7 +22,7 @@ parseLValue :: Parser LValue
 parseLValue = do
                 id <- identifier
                 indices <- many (brackets parseExpr)
-                return $ foldl' LArr (LVar id) indices
+                return $ foldl' (LArr ()) (LVar () id) indices
               <?> "L-value"
 
 parseDeclaration :: Parser Decl

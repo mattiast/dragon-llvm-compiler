@@ -40,11 +40,27 @@ findtypes = go where
         SIf f b s1 s2 -> (SIf f) <$> (typedExpr f b) <*> (go s1) <*> (go s2)
         SDoWhile f b s1 -> (SDoWhile f) <$> (typedExpr f b) <*> (go s1)
         SWhile f b s1 -> (SWhile f) <$> (typedExpr f b) <*> (go s1)
-        SAssign f lv e -> (SAssign f) <$> (golv f lv) <*> (typedExpr f e) -- i2f and f2i ??
+        SAssign f lv e -> do
+            tlv <- golv f lv
+            te <- typedExpr f e
+            let tl = getLTag tlv
+                tr = getTag te
+            case (tl, tr) of
+                _ | tl == tr -> return $ SAssign f tlv te
+                (TFloat, TInt) -> pure $ SAssign f tlv (EUn TFloat "i2f" te)
+                (TInt, TFloat) -> pure $ SAssign f tlv (EUn TInt "f2i" te)
         SBreak -> pure SBreak
     golv f lvalue = case lvalue of
-                    LVar v -> pure (LVar v)
-                    LArr lv e -> LArr <$> (golv f lv) <*> (typedExpr f e)
+                    LVar () v -> do
+                        t <- glue $ frameLookup f v
+                        pure (LVar t v)
+                    LArr () lv e -> do
+                        TArr t _ <- getLTag <$> golv f lv
+                        LArr t <$> (golv f lv) <*> (typedExpr f e)
+
+glue :: (Monad m, Alternative m) => Maybe a -> m a
+glue (Just x) = pure x
+glue Nothing = empty
 
 ftree :: Stmt -> ATree TType
 ftree s = let t1 = stree s
