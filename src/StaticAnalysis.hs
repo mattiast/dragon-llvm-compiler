@@ -62,37 +62,6 @@ glue :: (Monad m, Alternative m) => Maybe a -> m a
 glue (Just x) = pure x
 glue Nothing = empty
 
-ftree :: Stmt -> ATree TType
-ftree s = let t1 = stree s
-              t3 = fmap (id &&& (\m -> Frame [symtab m])) t1
-            in obeyParents t3 where
-            symtab :: Stmt -> M.Map String TType
-            symtab (SBlock () dd _) = M.fromList (map (\(Decl t v) -> (v,t)) dd)
-            symtab _ = M.empty
-
-stree :: Stmt -> Tree Stmt
-stree s@(SBlock () _ ss) = Node s (map stree ss)
-stree s@(SIf () _ s1 s2) = Node s (map stree [s1,s2])
-stree s@(SWhile () _ s1) = Node s (map stree [s1])
-stree s@(SDoWhile () _ s1) = Node s (map stree [s1])
-stree x = Node x []
-
-obeyParents :: ATree t -> ATree t
-obeyParents = paratree f where
-            f f1 (s,(Frame (m:_))) = (s,Frame (m:symTables (snd f1)))
-
-paratree :: (a -> a -> a) -> Tree a -> Tree a
--- f ottaa vanhemman ja lapsen, ja sijoittaa tuloksen lapseen
-paratree f (Node a ts) = let ts1 = map child ts
-                             ts2 = map (paratree f) ts1
-                           in Node a ts2 where
-                           child (Node a1 tt) = Node (f a a1) tt
-
--- yleinen tyyppi, voi olla esim Maybe TType tai Either String TType
-exprType :: (Monad m, Alternative m) => Frame TType -> Expr -> m TType 
-exprType f e = do
-    te <- typedExpr f e
-    return $ getTag te
 
 typedExpr :: (Monad m, Alternative m) => Frame TType -> Expr -> m (ExprAnn TType)
 typedExpr _ (ENum () x) = pure $ ENum TInt x
@@ -145,28 +114,3 @@ typedExpr f (EBin _ op e1 e2)
                                       guard $ getTag te1 == TBool
                                       guard $ getTag te2 == TBool
                                       return $ EBin TBool op te1 te2
-
-
-checkTypes :: ATree TType -> Either String ()
-checkTypes decorTree = let 
-                   helper (s@(SAssign () lvalue expr),f) = do
-                                                    t1 <- exprType f (lval2expr lvalue)
-                                                    t2 <- exprType f expr
-                                                    case (t1,t2) of
-                                                       _ | t1 == t2 || all (`elem` [TInt,TFloat]) [t1,t2] -> return ()
-                                                         | otherwise -> fail $ "Expression " ++ show expr ++ " has type " ++
-                                                                           show t1 ++ ", variable " ++ show lvalue ++
-                                                                           " has incompatible type " ++ show t2 ++
-                                                                           " in statement " ++ show s
-                   helper (SBlock () _ _, _) = return () -- ei tossa oo mitää
-                   helper (s@(SIf () b _ _),f) = checkBool b s f
-                   helper (s@(SWhile () b _),f) = checkBool b s f
-                   helper (s@(SDoWhile () b _),f) = checkBool b s f
-                   helper (SBreak , _) = return ()
-                   checkBool b s f = do
-                                t1 <- exprType f b
-                                case t1 of
-                                  TBool -> return ()
-                                  _ -> fail $ "Test must have boolean type, has " ++ show t1 ++ 
-                                              " in statement " ++ show s
-                  in F.forM_ decorTree helper

@@ -18,10 +18,6 @@ E  ->  E + E | E - E | E * E | E / E | L | ( B ) | num
 L  ->  L [ B ] | id
 -}
 module AbstractSyntax where
-import Data.Bifunctor
-import Data.Bifoldable
-import Data.Bitraversable
-import Data.Bifunctor.TH
 
 type Var = String
 
@@ -123,18 +119,3 @@ extractLValue (LVar _ v) = (v, [])
 extractLValue (LArr _ lv e1) =
   let (v, inds) = extractLValue lv
   in (v, inds ++ [e1])
-
-lval2expr :: LValue -> Expr
-lval2expr (LVar () v) = EFetch () v
-lval2expr (LArr () lv e) = EArrayInd () (lval2expr lv) e
-
-expr2lval :: ExprAnn t -> Maybe LValue
-expr2lval (EFetch _ v) = pure (LVar () v)
-expr2lval (EArrayInd _ x y) = do
-    lx <- expr2lval x
-    pure $ LArr () lx (fmap (const ()) y)
-expr2lval _ = Nothing
-
-$(deriveBifunctor ''StmtA)
-$(deriveBifoldable ''StmtA)
-$(deriveBitraversable ''StmtA)
