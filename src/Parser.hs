@@ -72,17 +72,14 @@ parseExpr    = buildExpressionParser table factor <?> "expression"
                 , try lvalue
                 ] <?> "simple expression"
 
-    truelit = reserved "true" *> pure (EBool () True)
-    falselit = reserved "false" *> pure (EBool () False)
+    truelit = (EBool () True) <$ reserved "true"
+    falselit = (EBool () False) <$ reserved "false"
     number  = ENum () <$> integer
-        <?> "number"
     real  = EReal () <$> float
-        <?> "real number"
     lvalue = do
         name <- EFetch () <$> identifier
         indices <- many (brackets parseExpr)
         return $ foldl (EArrayInd ()) name indices
-        <?> "variable name"
 
 parseStmt :: Parser Stmt
 parseStmt = let
@@ -101,14 +98,8 @@ parseStmt = let
         reserved "if"
         b <- parens parseExpr
         s1 <- stat
-        reserved "else"
-        s2 <- stat
+        s2 <- (reserved "else" *> stat) <|> (pure (SBlock () [] []))
         return $ SIf () b s1 s2
-    if_stmt = do
-        reserved "if"
-        b <- parens parseExpr
-        s <- stat
-        return $ SIf () b s (SBlock () [] [])
     block = braces (do
         dd <- many parseDeclaration
         ss <- many stat
@@ -129,7 +120,6 @@ parseStmt = let
         [ try assign <?> "assignment statement"
         , try while <?> "while statement"
         , try ifelse_stmt <?> "if statement"
-        , try if_stmt <?> "if statement"
         , try block <?> "block"
         , try brk <?> "break"
         , try dowhile <?> "do-while statement"
