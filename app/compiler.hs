@@ -1,6 +1,5 @@
 import Parser
 import StaticAnalysis
-import CodeGen
 import qualified CodeGen2 as C2
 import System.Environment
 import System.IO
