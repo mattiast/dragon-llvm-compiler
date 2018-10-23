@@ -7,7 +7,6 @@ dependencies:
 - text
 - llvm-hs-pure
 - llvm-hs-pretty
-- bifunctors
 
 
 library:

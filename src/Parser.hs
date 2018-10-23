@@ -6,6 +6,7 @@ import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language( javaStyle )
 import Data.List
 import Control.Applicative
+import Data.Foldable
 
 
 -- ohjelma on pelkkä block-statement
@@ -20,17 +21,17 @@ wParse src = case parse parseStmt "" src of
 
 parseLValue :: Parser LValue
 parseLValue = do
-                id <- identifier
+                id_ <- identifier
                 indices <- many (brackets parseExpr)
-                return $ foldl' (LArr ()) (LVar () id) indices
+                return $ foldl' (LArr ()) (LVar () id_) indices
               <?> "L-value"
 
 parseDeclaration :: Parser Decl
 parseDeclaration = do
   t <- parseType
-  id <- identifier
+  id_ <- identifier
   semi
-  return $ Decl t id
+  return $ Decl t id_
   <?> "declaration"
 
 parseType :: Parser TType
@@ -45,10 +46,10 @@ parseType = do
     pr "bool" = TBool
 
 parseExpr    :: Parser Expr
-parseExpr    = buildExpressionParser table factor <?> "expression" 
+parseExpr    = buildExpressionParser table factor <?> "expression"
                 where
     table   = [
-               [uop "!", uop "-"], -- TODO ongelma: noita voi olla vain yksi, eli !!(x < y), --y ei kelpaa, 
+               [uop "!", uop "-"], -- TODO ongelma: noita voi olla vain yksi, eli !!(x < y), --y ei kelpaa,
                [bop "*" AssocLeft, bop "/" AssocLeft],
                [bop "+" AssocLeft, bop "-" AssocLeft],
                map (\s -> bop s AssocNone) ["<=",">=","<",">"],
@@ -58,17 +59,18 @@ parseExpr    = buildExpressionParser table factor <?> "expression"
           ]
         where
           bop s assoc
-             = Infix (do{ reservedOp s; return (EBin () s)}) assoc
+             = Infix ((EBin () s) <$ reservedOp s) assoc
           uop s
-             = Prefix (do{ reservedOp s; return (EUn () s)})
+             = Prefix ((EUn () s) <$ reservedOp s)
 
-    factor  = try (parens parseExpr)
-        <|> try real
-        <|> try number
-        <|> try truelit
-        <|> try falselit
-        <|> try lvalue 
-        <?> "simple expression"
+    factor  = asum
+                [ try (parens parseExpr)
+                , try real
+                , try number
+                , try truelit
+                , try falselit
+                , try lvalue
+                ] <?> "simple expression"
 
     truelit = reserved "true" *> pure (EBool () True)
     falselit = reserved "false" *> pure (EBool () False)
@@ -90,13 +92,11 @@ parseStmt = let
         a <- parseExpr
         semi
         return $ SAssign () v a
-        <?> "assignment statement"
     while = do
         reserved "while"
         b <- parens parseExpr
         s <- stat
         return $ SWhile () b s
-        <?> "while statement"
     ifelse_stmt = do
         reserved "if"
         b <- parens parseExpr
@@ -104,23 +104,19 @@ parseStmt = let
         reserved "else"
         s2 <- stat
         return $ SIf () b s1 s2
-        <?> "if statement"
     if_stmt = do
         reserved "if"
         b <- parens parseExpr
         s <- stat
         return $ SIf () b s (SBlock () [] [])
-        <?> "if statement"
     block = braces (do
         dd <- many parseDeclaration
         ss <- many stat
         return $ SBlock () dd ss)
-        <?> "block"
-    break = do
+    brk = do
         reserved "break"
         semi
         return SBreak
-        <?> "break"
     dowhile = do
         reserved "do"
         s <- stat
@@ -128,16 +124,26 @@ parseStmt = let
         b <- parens parseExpr
         semi
         return $ SDoWhile () b s
-        <?> "do-while statement"
-    stat = try assign <|> try while <|> try ifelse_stmt <|> try if_stmt <|> try block <|> try break <|> try dowhile
+    stat =
+      asum
+        [ try assign <?> "assignment statement"
+        , try while <?> "while statement"
+        , try ifelse_stmt <?> "if statement"
+        , try if_stmt <?> "if statement"
+        , try block <?> "block"
+        , try brk <?> "break"
+        , try dowhile <?> "do-while statement"
+        ]
 
     in stat <?> "statement"
 
 -----------------------------------------------------------
 -- The lexer
 -----------------------------------------------------------
+lexer :: P.TokenParser u
 lexer     = P.makeTokenParser whileDef
 
+whileDef :: P.LanguageDef u
 whileDef  = javaStyle
           { 
             P.reservedNames  = [ "true", "false", "do", "while", "if", "else", "break", "int", "float", "char", "bool" ]
@@ -146,12 +152,29 @@ whileDef  = javaStyle
           , P.caseSensitive  = False
           }
 
-parens          = P.parens lexer    
-braces          = P.braces lexer    
-brackets        = P.brackets lexer
-identifier      = P.identifier lexer    
-reserved        = P.reserved lexer    
-reservedOp      = P.reservedOp lexer
-integer         = P.integer lexer    
-float           = P.float lexer
-semi            = P.semi lexer
+parens :: Parser a -> Parser a
+parens = P.parens lexer
+
+braces :: Parser a -> Parser a
+braces = P.braces lexer
+
+brackets :: Parser a -> Parser a
+brackets = P.brackets lexer
+
+identifier :: Parser String
+identifier = P.identifier lexer
+
+reserved :: String -> Parser ()
+reserved = P.reserved lexer
+
+reservedOp :: String -> Parser ()
+reservedOp = P.reservedOp lexer
+
+integer :: Parser Integer
+integer = P.integer lexer
+
+float :: Parser Double
+float = P.float lexer
+
+semi :: Parser ()
+semi = () <$ P.semi lexer
