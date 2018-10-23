@@ -15,6 +15,7 @@ import LLVM.IRBuilder.Instruction
 import LLVM.AST.FloatingPointPredicate hiding (True, False)
 import qualified LLVM.AST.IntegerPredicate as I
 import Prelude hiding (and, or)
+import Control.Monad.Except
 
 convertType :: TType -> L.Type
 convertType tp = case tp of
@@ -75,7 +76,7 @@ uopTable = M.fromList
     , (("i2f", TInt), flip sitofp (convertType TFloat))
     ]
 
-expr :: (MonadIRBuilder m) => Frame L.Operand -> ExprAnn TType -> m L.Operand
+expr :: (MonadIRBuilder m, MonadError String m) => Frame L.Operand -> ExprAnn TType -> m L.Operand
 expr f e =
   case e of
     ENum TInt x -> int32 x
@@ -85,26 +86,27 @@ expr f e =
         (if b
            then 1
            else 0)
-    EBin t bop e1 e2 -> do
+    EBin _ bop e1 e2 -> do
       x1 <- expr f e1
       x2 <- expr f e2
       True <- pure $ getTag e1 == getTag e2
-      let Just op = M.lookup (bop, getTag e1) bopTable
+      op <- glue "unknown binary operation" $ M.lookup (bop, getTag e1) bopTable
       op x1 x2
-    EUn t uop e1 -> do
+    EUn _ uop e1 -> do
       x1 <- expr f e1
-      let Just op = M.lookup (uop, getTag e1) uopTable
+      op <- glue "unknown unary operation" $ M.lookup (uop, getTag e1) uopTable
       op x1
     (EArrayInd _ _ _) -> do
       let (EFetch _ v, inds) = extractIndices e
-      let Just xv = frameLookup f v
+      xv <- glue "unknown variable" $ frameLookup f v
       xinds <- T.traverse (expr f) inds
       zero <- int32 0
       reg_ptr <- gep xv (zero:xinds)
       load reg_ptr 4
     (EFetch _ v) -> do
-      let Just xv = frameLookup f v
+      xv <- glue "unknown variable" $ frameLookup f v
       load xv 4
+    _ -> throwError $ "weird expression: " ++ show e
 
 extractIndices :: ExprAnn t -> (ExprAnn t, [ExprAnn t])
 extractIndices (EArrayInd _ x y) =
@@ -112,18 +114,20 @@ extractIndices (EArrayInd _ x y) =
     in (f, r ++ [y])
 extractIndices e = (e, [])
 
-newnewvars :: (MonadIRBuilder m) => StmtA (Frame TType) t -> m (StmtA (Frame L.Operand) t)
+newnewvars :: (MonadIRBuilder m, MonadError String m) => StmtA (Frame TType) t -> m (StmtA (Frame L.Operand) t)
 newnewvars = go (Frame []) where
     go f s = case s of
         SBlock (Frame (d:_)) dd ss -> do
             d' <- traverse (\t -> alloca (convertType t) Nothing 4) d
             let f' = Frame (d':symTables f)
             (SBlock f' dd) <$> (traverse (go f') ss)
+        SBlock (Frame []) _ _ -> throwError "empty frame wtf"
         SIf _ b s1 s2 -> (SIf f b) <$> (go f s1) <*> (go f s2)
         SDoWhile _ b s1 -> (SDoWhile f b) <$> (go f s1)
         SWhile _ b s1 -> (SWhile f b) <$> (go f s1)
         SAssign _ lv e -> pure (SAssign f lv e)
         SBreak -> pure SBreak
+
 
 push_label :: (MonadState [a] m) => a -> m ()
 push_label name = modify (name:)
@@ -131,7 +135,7 @@ push_label name = modify (name:)
 pop_label :: (MonadState [a] m) => m ()
 pop_label = modify tail
 
-stmt :: (MonadIRBuilder m, MonadState [L.Name] m) => StmtA (Frame L.Operand) TType -> m ()
+stmt :: (MonadIRBuilder m, MonadState [L.Name] m, MonadError String m) => StmtA (Frame L.Operand) TType -> m ()
 stmt (SIf f cond tstmt fstmt) = do
     lbl_true <- freshName "if_true"
     lbl_false <- freshName "if_false"
@@ -175,8 +179,8 @@ stmt (SDoWhile f b s1) = do
         emitBlockStart lbl_end
 stmt (SAssign f lval e) = do
     xe <- expr f e
-    let Just reg_var = frameLookup f v
-        (v, inds) = extractLValue lval
+    let (v, inds) = extractLValue lval
+    reg_var <- glue "var not found" $ frameLookup f v
     xinds <- traverse (expr f) inds
     zero <- int32 0
     reg_ptr <- gep reg_var (zero : xinds)

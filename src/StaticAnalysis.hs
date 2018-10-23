@@ -1,17 +1,20 @@
 {-# LANGUAGE DeriveFunctor #-}
-module StaticAnalysis where
+{-# LANGUAGE FlexibleContexts #-}
+module StaticAnalysis
+    ( frameLookup
+    , findtypes
+    , newftree
+    , Frame(..)
+    , glue
+    , guardWith
+    ) where
 import AbstractSyntax
-import Data.Tree
 import qualified Data.Map as M
-import Control.Applicative
--- this is only used to get orphan instance for Alternative (Either String) blehhhh
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Function((&))
 import Data.Monoid
 
 newtype Frame t = Frame { symTables :: [M.Map String t]} deriving (Eq,Ord,Show, Functor) 
-
-type ATree t = Tree (Stmt, Frame t)
 
 frameLookup :: Frame t -> String -> Maybe t
 frameLookup f s = symTables f
@@ -31,7 +34,7 @@ newftree stmt = go (Frame []) stmt where
         SAssign () lv e -> SAssign f lv e
         SBreak -> SBreak
 
-findtypes :: (Monad m, Alternative m) => StmtA (Frame TType) () -> m (StmtA (Frame TType) TType)
+findtypes :: (MonadError String m) => StmtA (Frame TType) () -> m (StmtA (Frame TType) TType)
 findtypes = go where
     go stmt = case stmt of
         SBlock f dd ss -> (SBlock f dd) <$> (traverse go ss)
@@ -47,21 +50,25 @@ findtypes = go where
                 _ | tl == tr -> return $ SAssign f tlv te
                 (TFloat, TInt) -> pure $ SAssign f tlv (EUn TFloat "i2f" te)
                 (TInt, TFloat) -> pure $ SAssign f tlv (EUn TInt "f2i" te)
+                _ -> throwError "weird types in assignment"
         SBreak -> pure SBreak
     golv f lvalue = case lvalue of
                     LVar () v -> do
-                        t <- glue $ frameLookup f v
+                        t <- glue "error" $ frameLookup f v
                         pure (LVar t v)
                     LArr () lv e -> do
                         TArr t _ <- getLTag <$> golv f lv
                         LArr t <$> (golv f lv) <*> (typedExpr f e)
 
-glue :: (Alternative m) => Maybe a -> m a
-glue (Just x) = pure x
-glue Nothing = empty
+glue :: (MonadError String m) => String -> Maybe a -> m a
+glue message mx = maybe (throwError message) pure mx
 
+guardWith :: (MonadError String m) => String -> Bool -> m ()
+guardWith message check = if check
+                            then return ()
+                            else throwError message
 
-typedExpr :: (Monad m, Alternative m) => Frame TType -> Expr -> m (ExprAnn TType)
+typedExpr :: (MonadError String m) => Frame TType -> Expr -> m (ExprAnn TType)
 typedExpr _ (ENum () x) = pure $ ENum TInt x
 typedExpr _ (EReal () x) = pure $ EReal TFloat x
 typedExpr _ (EBool () x) = pure $ EBool TBool x
@@ -76,39 +83,41 @@ typedExpr f (EArrayInd _ x ind) = do
                                       return $ EArrayInd t te1 te2
 typedExpr f (EUn () "!" e1) = do
                             te1 <- typedExpr f e1
-                            guard $ getTag te1 == TBool
+                            guardWith "error" $ getTag te1 == TBool
                             return $ EUn TBool "!" te1
 typedExpr f (EUn () "-" e1) = do
                             te1 <- typedExpr f e1
                             let t = getTag te1
-                            guard $ t `elem` [TInt, TBool]
+                            guardWith "error" $ t `elem` [TInt, TBool]
                             return $ EUn t "-" te1
+typedExpr _ (EUn () op _) = throwError $ "weird unary operation " ++ op
 typedExpr f (EBin _ op e1 e2) 
     | op `elem` ["+","-","*","/"] = do -- tässä voi olla int ja float, mutta vertailussa pitää olla sama tyyppi
                                       te1 <- typedExpr f e1
                                       te2 <- typedExpr f e2
                                       let t1 = getTag te1
                                           t2 = getTag te2
-                                      guard $ all (`elem` [TInt,TFloat]) $ [t1,t2]
+                                      guardWith "error" $ all (`elem` [TInt,TFloat]) $ [t1,t2]
                                       let t = if t1 == t2 then t1 else TFloat
-                                      te1 <- pure $ if (t1, t) == (TInt, TFloat) then EUn TFloat "i2f" te1 else te1
-                                      te2 <- pure $ if (t2, t) == (TInt, TFloat) then EUn TFloat "i2f" te2 else te2
-                                      return $ EBin t op te1 te2
+                                      ce1 <- pure $ if (t1, t) == (TInt, TFloat) then EUn TFloat "i2f" te1 else te1
+                                      ce2 <- pure $ if (t2, t) == (TInt, TFloat) then EUn TFloat "i2f" te2 else te2
+                                      return $ EBin t op ce1 ce2
     | op `elem` ["==","!="] = do
                                       te1 <- typedExpr f e1
                                       te2 <- typedExpr f e2
-                                      guard (getTag te1 == getTag te2 && getTag te1 `elem` [TInt,TFloat,TBool,TChar])
+                                      guardWith "error" (getTag te1 == getTag te2 && getTag te1 `elem` [TInt,TFloat,TBool,TChar])
                                       return $ EBin TBool op te1 te2
     | op `elem` ["<",">","<=",">="] = do
                                       te1 <- typedExpr f e1
                                       te2 <- typedExpr f e2
                                       let t1 = getTag te1
                                           t2 = getTag te2
-                                      guard (t1 == t2 && t1 `elem` [TInt,TFloat])
+                                      guardWith "error" (t1 == t2 && t1 `elem` [TInt,TFloat])
                                       return $ EBin TBool op te1 te2
     | op `elem` ["||","&&"] = do
                                       te1 <- typedExpr f e1
                                       te2 <- typedExpr f e2
-                                      guard $ getTag te1 == TBool
-                                      guard $ getTag te2 == TBool
+                                      guardWith "error" $ getTag te1 == TBool
+                                      guardWith "error" $ getTag te2 == TBool
                                       return $ EBin TBool op te1 te2
+    | otherwise = throwError $ "weird binary operation " ++ op
