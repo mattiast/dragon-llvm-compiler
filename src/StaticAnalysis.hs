@@ -74,7 +74,7 @@ typedExpr _ (EReal () x) = pure $ EReal TFloat x
 typedExpr _ (EBool () x) = pure $ EBool TBool x
 typedExpr f (EFetch () v) = case frameLookup f v of
                                 Just t -> return $ EFetch t v
-                                Nothing -> fail ("Symbol not found: " ++ v)
+                                Nothing -> throwError ("Symbol not found: " ++ v)
 typedExpr f (EArrayInd _ x ind) = do
                                       te1 <- typedExpr f x
                                       te2 <- typedExpr f ind -- tarkistetaan, onko indeksi int
